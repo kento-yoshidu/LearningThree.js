@@ -1,0 +1,87 @@
+@charset "UTF-8";
+
+* {
+  margin: 0;
+  padding: 0;
+}
+*::before,
+*::after {
+    
+}
+
+.main {
+  display: block;
+  background: #eee;
+  width: 100%;
+  height: 100vh;
+}
+
+.check-btn {
+  display: none; //非表示にします。
+}
+
+// チェックボックスがオンの時、
+// .mainを左に300pxずらします。
+/*
+.check-btn:checked ~ .main {
+  transform: translateX(-300px);
+}*/
+
+// ドロワーメニュー本体
+.drawer-menu {
+  position: fixed;
+  top: 0;
+  right: 0; //右端に固定します
+  width: 300px;
+  height: 100%;
+  background: rgb(147,41,147);
+  opacity: 0; //非表示。チェックボックスがONになったときに1に変更します。
+  z-index: 4;
+}
+
+.check-btn:checked ~ .drawer-menu {
+  opacity: 1;
+}
+
+.menu-btn {
+  position: fixed;
+  display: block;
+  top: 40px;
+  right: 40px;
+  width: 50px;
+  height: 50px;
+  background: #aaa;
+  border-radius: 100%;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.close-menu {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 100vh;
+  background: rgba(200,200,200,.5);
+  opacity: 0;
+}
+
+.check-btn:checked ~ .close-menu {
+  visibility: visible;
+  width: 100%;
+  opacity: 1;
+  z-index: 3;
+}
+
+ul {
+  padding: 150px 0;
+  list-style: none;
+  li {
+    padding: 10px 0;
+    margin: 20px 0;
+    text-align: center;
+    &:hover {
+      background: #aaa;
+    }
+  }
+}
