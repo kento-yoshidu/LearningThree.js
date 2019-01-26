@@ -20,13 +20,6 @@
   display: none; //非表示にします。
 }
 
-// チェックボックスがオンの時、
-// .mainを左に300pxずらします。
-/*
-.check-btn:checked ~ .main {
-  transform: translateX(-300px);
-}*/
-
 // ドロワーメニュー本体
 .drawer-menu {
   position: fixed;

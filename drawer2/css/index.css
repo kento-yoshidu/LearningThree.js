@@ -7,6 +7,9 @@
   -webkit-box-sizing: border-box;
   box-sizing: border-box; }
 
+ul {
+  list-style: none; }
+
 .main {
   display: block;
   background: pink;
@@ -14,25 +17,103 @@
   height: 100vh;
   -webkit-transition: .3s ease-in-out;
   -o-transition: .3s ease-in-out;
-  transition: .3s ease-in-out; }
+  transition: .3s ease-in-out;
+  -webkit-box-shadow: 20px 0 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 20px 0 60px rgba(0, 0, 0, 0.5); }
 
-.check-btn:checked ~ .main {
-  -webkit-transform: translateX(-300px);
-  -ms-transform: translateX(-300px);
-  transform: translateX(-300px); }
+.check-btn {
+  display: none; }
+  .check-btn:checked ~ .main {
+    -webkit-transform: translateX(-300px);
+    -ms-transform: translateX(-300px);
+    transform: translateX(-300px); }
+  .check-btn:checked ~ .drawer-menu {
+    opacity: 1; }
+  .check-btn:checked ~ .drawer-menu {
+    -webkit-transition-delay: .3s;
+    -o-transition-delay: .3s;
+    transition-delay: .3s;
+    -webkit-transform: none;
+    -ms-transform: none;
+    transform: none;
+    opacity: 1;
+    z-index: 2;
+    width: 300px; }
+  .check-btn:checked ~ .close-menu {
+    -webkit-transition-duration: 1s;
+    -o-transition-duration: 1s;
+    transition-duration: 1s;
+    -webkit-transition-delay: .1s;
+    -o-transition-delay: .1s;
+    transition-delay: .1s;
+    background: rgba(150, 150, 150, 0.6);
+    visibility: visible;
+    opacity: 1;
+    z-index: 3; }
+  .check-btn:checked ~ .menu-btn::before {
+    content: "\f00d";
+    -webkit-transition-duration: 1s;
+    -o-transition-duration: 1s;
+    transition-duration: 1s;
+    -webkit-transition-delay: .5s;
+    -o-transition-delay: .5s;
+    transition-delay: .5s; }
 
 .drawer-menu {
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
   position: fixed;
   top: 0;
   right: 0;
-  width: 300px;
+  width: 100px;
   height: 100vh;
   background: skyblue;
   -webkit-transition-property: all;
   -o-transition-property: all;
   transition-property: all;
+  -webkit-transition-duration: .5s;
+  -o-transition-duration: .5s;
+  transition-duration: .5s;
+  -webkit-transform-origin: right center;
+  -ms-transform-origin: right center;
+  transform-origin: right center;
+  -webkit-transform: perspective(300px) rotateY(-90deg);
+  transform: perspective(300px) rotateY(-90deg);
   opacity: 0;
-  z-index: 4; }
+  z-index: 4;
+  -webkit-animation: dm 1s;
+  animation: dm 1s; }
 
-.check-btn:checked ~ .drawer-menu {
-  opacity: 1; }
+.menu-btn {
+  position: fixed;
+  top: 7px;
+  right: 40px;
+  cursor: pointer;
+  z-index: 3;
+  color: #444;
+  -webkit-transition: .3s;
+  -o-transition: .3s;
+  transition: .3s; }
+  .menu-btn:hover {
+    color: #aaa; }
+  .menu-btn::before {
+    font-weight: 900;
+    font-family: "Font Awesome 5 Free";
+    content: '\f0c9';
+    font-size: 3.3rem; }
+
+.close-menu {
+  position: fixed;
+  top: 0;
+  right: 300px;
+  width: 100%;
+  height: 100vh;
+  cursor: url(http://theorthodoxworks.com/demo/images/cross.svg), auto;
+  -webkit-transition-property: all;
+  -o-transition-property: all;
+  transition-property: all;
+  -webkit-transition-duration: .3s;
+  -o-transition-duration: .3s;
+  transition-duration: .3s;
+  visibility: hidden;
+  opacity: 0; }

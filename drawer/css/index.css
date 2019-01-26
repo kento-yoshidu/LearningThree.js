@@ -11,10 +11,6 @@
 .check-btn {
   display: none; }
 
-/*
-.check-btn:checked ~ .main {
-  transform: translateX(-300px);
-}*/
 .drawer-menu {
   position: fixed;
   top: 0;
