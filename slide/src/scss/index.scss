@@ -1,56 +1,58 @@
 .sidemenu {
-	position: absolute;
-	z-index: 1000;
+	position: fixed;
+	z-index: 100;
 	top: 0;
-	bottom: 0;
 	left: 0;
 	overflow: hidden;
-	width: 3.5em;
+	width: 65px;
 	height: 100%;
   transition: width 0.6s ease;
-	border-right: 1px solid #e5e5e5;
-	background: #37474F;
+  background: rgba(100,100,100,.9);
   &:hover {
     overflow: visible;
-    width: 17em;
+    width: 250px;
   }
   .menu-list {
-    margin: 7px 0;
     padding: 0;
+    margin: 0;
     outline: 0;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
     .list-item {
       position: relative;
       display: block;
-      width: 17em;
-      margin: 5px 0;
+      width: 250px;
+      margin: 16px 0;
       padding: 0;
       outline: 0;
       a {
+        display: block;
         position: relative;
-        display: table;
-        border-spacing: 0;
-        border-collapse: collapse;
         text-decoration: none;
         color: #ffffff;
+        z-index: 200;
+        transition: .7s ease;
       }
       &:before {
         content:"";
         position: absolute;
         top: 0px;
-        left: -17em;
+        left: -100%;
         height: 100%;
-        width: 17em;
-        background : rgba(240,98,146 ,0.5);
-        -webkit-transition: all 0.6s ease;
-                transition: all 0.6s ease;
+        width: 250px;
+        background : rgba(200,200,200,.9);
+        transition: all 1s ease;
       }
       &:hover:before {
         left:0;
       }
+      &:hover a {
+        color: #888;
+      }
       i {
         font-size: 2em;
-        display: inline-block;
-        padding: 12px 7px;
+        padding: 5px 12px;
         vertical-align: middle;
         margin-right: 5px;
       }
