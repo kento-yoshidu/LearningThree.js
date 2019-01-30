@@ -1,0 +1,71 @@
+.sidemenu {
+	position: absolute;
+	z-index: 1000;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	overflow: hidden;
+	width: 3.5em;
+	height: 100%;
+  transition: width 0.6s ease;
+	border-right: 1px solid #e5e5e5;
+	background: #37474F;
+  &:hover {
+    overflow: visible;
+    width: 17em;
+  }
+  .menu-list {
+    margin: 7px 0;
+    padding: 0;
+    outline: 0;
+    .list-item {
+      position: relative;
+      display: block;
+      width: 17em;
+      margin: 5px 0;
+      padding: 0;
+      outline: 0;
+      a {
+        position: relative;
+        display: table;
+        border-spacing: 0;
+        border-collapse: collapse;
+        text-decoration: none;
+        color: #ffffff;
+      }
+      &:before {
+        content:"";
+        position: absolute;
+        top: 0px;
+        left: -17em;
+        height: 100%;
+        width: 17em;
+        background : rgba(240,98,146 ,0.5);
+        -webkit-transition: all 0.6s ease;
+                transition: all 0.6s ease;
+      }
+      &:hover:before {
+        left:0;
+      }
+      i {
+        font-size: 2em;
+        display: inline-block;
+        padding: 12px 7px;
+        vertical-align: middle;
+        margin-right: 5px;
+      }
+    } //li
+  }
+}
+.cp_sidebarmenu > ul.control {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+}
+/*
+.cp_sidebarmenu span {
+	position: relative;
+	display: table-cell;
+	width: 14em;
+	vertical-align: middle;
+} */
