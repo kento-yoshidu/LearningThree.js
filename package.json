@@ -1,26 +1,19 @@
 {
-  "name": "learningthreejs",
-  "version": "0.1.0",
+  "name": "three",
   "private": true,
+  "version": "0.0.0",
+  "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
-  },
-  "dependencies": {
-    "next": "12.1.6",
-    "react": "18.1.0",
-    "react-dom": "18.1.0",
-    "three": "^0.141.0"
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
   },
   "devDependencies": {
-    "@types/node": "17.0.40",
-    "@types/react": "18.0.12",
-    "@types/react-dom": "18.0.5",
-    "@types/three": "^0.141.0",
-    "eslint": "8.17.0",
-    "eslint-config-next": "12.1.6",
-    "typescript": "4.7.3"
+    "@types/three": "^0.139.0",
+    "typescript": "^4.6.4",
+    "vite": "^3.1.0"
+  },
+  "dependencies": {
+    "three": "^0.139.2"
   }
 }
