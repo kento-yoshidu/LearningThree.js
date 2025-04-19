@@ -1,46 +1,100 @@
-use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{web, App, HttpResponse, HttpServer, Responder, get};
+use sqlx::PgPool;
 use serde::Serialize;
-use sqlx::postgres::PgPool;
 use std::env;
 use dotenvy::dotenv;
 
 #[derive(Serialize, Debug)]
 struct Photo {
     id: i32,
-    user_id: Option<String>,
+    user_id: Option<i32>,
     title: Option<String>,
+    folder_id: Option<String>,
     description: Option<String>,
     image_path: String,
 }
 
-#[get("/photos")]
-async fn get_photos(db: web::Data<PgPool>) -> impl Responder {
-    let rows = sqlx::query!(
-        "SELECT
-            id,
-            user_id::TEXT as user_id,
-            title,
-            description,
-            image_path
-        FROM
-            photos"
+#[derive(Serialize, Debug)]
+struct Folder {
+    id: i32,
+    user_id: Option<i32>,
+    name: String,
+    description: Option<String>,
+    parent_id: Option<i32>,
+}
+
+#[derive(Serialize, Debug)]
+struct FolderContents {
+    folder: Folder,
+    photos: Vec<Photo>,
+    child_folders: Vec<Folder>,
+}
+
+#[get("/files/{folder_id}")]
+async fn get_folder_contents(folder_id: web::Path<i32>, db: web::Data<PgPool>) -> impl Responder {
+    let folder_id = folder_id.into_inner();
+
+    let folder_rows = sqlx::query!(
+        "SELECT id, user_id, name, description, parent_id FROM folders WHERE id = $1",
+        folder_id
     )
     .fetch_all(db.get_ref())
-    .await
-    .unwrap();
+    .await;
 
-    let photos: Vec<Photo> = rows
-        .into_iter()
-        .map(|row| Photo {
+    let folder = match folder_rows {
+        Ok(rows) if !rows.is_empty() => Folder {
+            id: rows[0].id,
+            user_id: rows[0].user_id,
+            name: rows[0].name.clone(),
+            description: rows[0].description.clone(),
+            parent_id: rows[0].parent_id,
+        },
+        Ok(_) => return HttpResponse::NotFound().body("Folder not found"),
+        Err(_) => return HttpResponse::InternalServerError().body("Error fetching folder"),
+    };
+
+    let photo_rows = sqlx::query!(
+        "SELECT id, user_id, title, description, image_path FROM photos WHERE folder_id = $1",
+        folder_id
+    )
+    .fetch_all(db.get_ref())
+    .await;
+
+    let photos: Vec<Photo> = match photo_rows {
+        Ok(rows) => rows.into_iter().map(|row| Photo {
             id: row.id,
             user_id: row.user_id,
-            title: row.title,
+            title: Some(row.title),
             description: row.description,
             image_path: row.image_path,
-        })
-        .collect();
+            folder_id: Some(folder_id.to_string()),
+        }).collect(),
+        Err(_) => return HttpResponse::InternalServerError().body("Error fetching photos"),
+    };
 
-    web::Json(photos)
+    let child_folder_rows = sqlx::query!(
+        "SELECT id, user_id, name, description, parent_id FROM folders WHERE parent_id = $1",
+        folder_id
+    )
+    .fetch_all(db.get_ref())
+    .await;
+
+    let child_folders: Vec<Folder> = match child_folder_rows {
+        Ok(rows) => rows.into_iter().map(|row| Folder {
+            id: row.id,
+            user_id: row.user_id,
+            name: row.name.clone(),
+            description: row.description.clone(),
+            parent_id: row.parent_id,
+        }).collect(),
+        Err(_) => return HttpResponse::InternalServerError().body("Error fetching child folders"),
+    };
+
+    HttpResponse::Ok().json(FolderContents {
+        folder,
+        photos,
+        child_folders,
+    })
 }
 
 #[get("/")]
@@ -63,7 +117,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(pool_data.clone())
             .service(hello)
-            .service(get_photos)
+            .service(get_folder_contents)
     })
     .bind(("0.0.0.0", 8000))?
     .run()
