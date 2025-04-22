@@ -1,5 +1,5 @@
 use actix_web::{web, App, HttpResponse, HttpServer, Responder, get};
-use sqlx::PgPool;
+use sqlx::{PgPool, query};
 use serde::Serialize;
 use std::env;
 use dotenvy::dotenv;
@@ -122,4 +122,27 @@ async fn main() -> std::io::Result<()> {
     .bind(("0.0.0.0", 8000))?
     .run()
     .await
+}
+
+#[tokio::test]
+async fn test() {
+    dotenvy::from_filename(".env.test").ok();
+
+    let db_url = env::var("DATABASE_URL").expect("DATABASE_URL_TEST must be set");
+    let pool = PgPool::connect(&db_url)
+        .await
+        .expect("Failed to connect to DB");
+
+    let photo = query!(
+        "SELECT id, title, description, image_path, folder_id FROM photos WHERE id = $1",
+        1
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("Failed to fetch test photo");
+
+    assert_eq!(photo.title, "admin_photo_1");
+    assert_eq!(photo.description, Some("admin photo 1".to_string()));
+    assert_eq!(photo.image_path, "/images/1.jpg");
+    assert_eq!(photo.folder_id, Some(1));
 }
