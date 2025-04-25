@@ -1,4 +1,5 @@
 use actix_web::{web, App, HttpResponse, HttpServer, Responder, get};
+use actix_cors::Cors;
 use sqlx::{PgPool, query};
 use serde::Serialize;
 use std::env;
@@ -23,11 +24,18 @@ struct Folder {
     parent_id: Option<i32>,
 }
 
+#[derive(serde::Serialize, Debug)]
+struct Breadcrumb {
+    id: Option<i32>,
+    name: Option<String>,
+}
+
 #[derive(Serialize, Debug)]
 struct FolderContents {
     folder: Folder,
     photos: Vec<Photo>,
     child_folders: Vec<Folder>,
+    breadcrumbs: Vec<Breadcrumb>,
 }
 
 #[get("/files/{folder_id}")]
@@ -90,10 +98,41 @@ async fn get_folder_contents(folder_id: web::Path<i32>, db: web::Data<PgPool>) -
         Err(_) => return HttpResponse::InternalServerError().body("Error fetching child folders"),
     };
 
+    let breadcrumb_rows = sqlx::query!(
+        r#"
+        WITH RECURSIVE breadcrumb AS (
+            SELECT id, name, parent_id
+            FROM folders
+            WHERE id = $1
+
+            UNION ALL
+
+            SELECT f.id, f.name, f.parent_id
+            FROM folders f
+            JOIN breadcrumb b ON f.id = b.parent_id
+        )
+        SELECT id, name
+        FROM breadcrumb
+        ORDER BY parent_id NULLS FIRST;
+        "#,
+        folder_id
+    )
+    .fetch_all(db.get_ref())
+    .await;
+
+    let breadcrumbs: Vec<Breadcrumb> = match breadcrumb_rows {
+        Ok(rows) => rows.into_iter().map(|row| Breadcrumb {
+            id: row.id,
+            name: row.name,
+        }).collect(),
+        Err(_) => return HttpResponse::InternalServerError().body("Error fetching breadcrumbs"),
+    };
+
     HttpResponse::Ok().json(FolderContents {
         folder,
         photos,
         child_folders,
+        breadcrumbs,
     })
 }
 
@@ -115,6 +154,13 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
+            .wrap(
+                Cors::default()
+                    .allow_any_origin()
+                    .allow_any_method()
+                    .allow_any_header()
+                    .max_age(3600),
+            )
             .app_data(pool_data.clone())
             .service(hello)
             .service(get_folder_contents)
@@ -145,4 +191,37 @@ async fn test() {
     assert_eq!(photo.description, Some("admin photo 1".to_string()));
     assert_eq!(photo.image_path, "/images/1.jpg");
     assert_eq!(photo.folder_id, Some(1));
+}
+
+#[tokio::test]
+async fn test_existing_breadcrumbs() {
+    dotenvy::from_filename(".env.test").ok();
+
+    let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let pool = PgPool::connect(&db_url).await.expect("Failed to connect to DB");
+
+    let app = actix_web::test::init_service(
+        App::new()
+            .app_data(web::Data::new(pool.clone()))
+            .service(get_folder_contents),
+    )
+    .await;
+
+    let req = actix_web::test::TestRequest::get()
+        .uri("/files/3")
+        .to_request();
+
+    let resp = actix_web::test::call_service(&app, req).await;
+    assert!(resp.status().is_success());
+
+    let body = actix_web::test::read_body(resp).await;
+    let result: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    let breadcrumbs = result["breadcrumbs"].as_array().unwrap();
+    let names: Vec<&str> = breadcrumbs
+        .iter()
+        .map(|b| b["name"].as_str().unwrap())
+        .collect();
+
+    assert_eq!(names, vec!["admin", "admin_1", "admin_1_1"]);
 }
