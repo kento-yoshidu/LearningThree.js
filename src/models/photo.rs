@@ -8,4 +8,5 @@ pub struct Photo {
     pub folder_id: Option<String>,
     pub description: Option<String>,
     pub image_path: String,
+    pub tags: Vec<String>,
 }
