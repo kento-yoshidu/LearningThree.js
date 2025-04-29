@@ -6,15 +6,56 @@ mod handlers {
 mod routes {
     pub mod folder;
 }
-use actix_web::{web, App, HttpResponse, HttpServer, Responder, get};
+
+use std::env;
+use std::time::SystemTime;
+use actix_web::{web, App, HttpServer, Responder, get};
 use actix_cors::Cors;
 use sqlx::PgPool;
-use std::env;
 use dotenvy::dotenv;
+use aws_sdk_s3::{Client, Config};
+use aws_sdk_s3::config::{Credentials, Region};
 
-#[get("/")]
-async fn hello() -> impl Responder {
-    HttpResponse::Ok().body("Hello World!")
+async fn verify_s3_credentials() -> String {
+    dotenv().ok();
+
+    let access_key = env::var("AWS_ACCESS_KEY_ID").expect("AWS_ACCESS_KEY_ID not set");
+    let secret_key = env::var("AWS_SECRET_ACCESS_KEY").expect("AWS_SECRET_ACCESS_KEY not set");
+    let region = env::var("AWS_REGION").unwrap_or_else(|_| "us-west-2".to_string());
+
+    let credentials = Credentials::new(
+        access_key,
+        secret_key,
+        None,
+        Some(SystemTime::now()),
+        "static credentials",
+    );
+
+    let config = Config::builder()
+        .region(Region::new(region))
+        .credentials_provider(credentials)
+        .build();
+
+    let client = Client::from_conf(config);
+
+    match client.list_buckets().send().await {
+        Ok(response) => {
+            let bucket_names: Vec<String> = response.buckets().unwrap_or_default()
+                .iter()
+                .filter_map(|bucket| bucket.name().map(|s| s.to_string()))
+                .collect();
+
+            format!("success: Buckets: {:?}", bucket_names)
+        }
+        Err(e) => {
+            format!("failed: {}", e)
+        }
+    }
+}
+
+#[get("/check-s3-auth")]
+async fn check_s3_authentication() -> impl Responder {
+    verify_s3_credentials().await
 }
 
 #[actix_web::main]
@@ -38,6 +79,7 @@ async fn main() -> std::io::Result<()> {
                     .max_age(3600),
             )
             .app_data(pool_data.clone())
+            .service(check_s3_authentication)
             .configure(routes::folder::config)
     })
     .bind(("0.0.0.0", 8000))?
