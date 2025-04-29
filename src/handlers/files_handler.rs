@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use serde::Serialize;
 use actix_web::{web, get, HttpResponse, Responder};
 use sqlx::PgPool;
-use crate::models::{Photo, Folder, Breadcrumb};
+use crate::models::{tag::TagResponse, Breadcrumb, Folder, Photo, Tag};
 
 #[derive(Serialize, Debug)]
 struct FolderContents {
@@ -104,22 +104,31 @@ pub async fn get_folder_contents(path: web::Path<(i32, i32)>, db: web::Data<PgPo
     let photo_ids: Vec<i32> = rows.iter().map(|row| row.id).collect();
 
     let photo_tag_rows = sqlx::query!(
-        "SELECT photo_id, tag FROM photo_tags WHERE photo_id = ANY($1)",
+        "SELECT photo_id, tag, id FROM photo_tags WHERE photo_id = ANY($1)",
         &photo_ids
     )
     .fetch_all(db.get_ref())
     .await;
 
-    let mut tag_map: HashMap<i32, Vec<String>> = HashMap::new();
+    let mut tag_map: HashMap<i32, Vec<TagResponse>> = HashMap::new();
+
     if let Ok(tag_rows) = photo_tag_rows {
         for tag_row in tag_rows {
             if let Some(photo_id) = tag_row.photo_id {
-                tag_map.entry(photo_id)
-                    .or_insert_with(Vec::new)
-                    .push(tag_row.tag);
+                let tag = Tag {
+                    id: tag_row.id,
+                    photo_id: tag_row.photo_id,
+                    user_id: None,
+                    tag: tag_row.tag,
+                };
+                tag_map
+                    .entry(photo_id)
+                    .or_default()
+                    .push(tag.into());
             }
         }
     }
+
 
     let photos: Vec<Photo> = rows.into_iter().map(|row| Photo {
         id: row.id,
@@ -128,7 +137,7 @@ pub async fn get_folder_contents(path: web::Path<(i32, i32)>, db: web::Data<PgPo
         description: row.description,
         image_path: row.image_path,
         folder_id: Some(folder_id.to_string()),
-        tags: tag_map.get(&row.id).cloned().unwrap_or_else(Vec::new),
+        tags: tag_map.remove(&row.id).unwrap_or_default(),
     }).collect();
 
     // パンくずリスト
