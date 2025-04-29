@@ -9,12 +9,18 @@ mod routes {
 
 use std::env;
 use std::time::SystemTime;
-use actix_web::{web, App, HttpServer, Responder, get};
+use actix_web::{web, App, HttpServer, HttpResponse, Responder, get, post};
 use actix_cors::Cors;
 use sqlx::PgPool;
 use dotenvy::dotenv;
 use aws_sdk_s3::{Client, Config};
 use aws_sdk_s3::config::{Credentials, Region};
+use futures_util::stream::StreamExt as _;
+use uuid::Uuid;
+use actix_multipart::Multipart;
+use aws_sdk_s3::primitives::ByteStream;
+use aws_sdk_s3::presigning::{PresigningConfig};
+use std::time::Duration;
 
 async fn verify_s3_credentials() -> String {
     dotenv().ok();
@@ -58,6 +64,51 @@ async fn check_s3_authentication() -> impl Responder {
     verify_s3_credentials().await
 }
 
+#[post("/upload-file")]
+async fn generate_presigned_url() -> impl Responder {
+    let access_key = env::var("AWS_ACCESS_KEY_ID").unwrap();
+    let secret_key = env::var("AWS_SECRET_ACCESS_KEY").unwrap();
+    let region = env::var("AWS_REGION").unwrap_or_else(|_| "us-west-2".to_string());
+    let bucket_name = env::var("MY_BUCKET_NAME").expect("MY_BUCKET_NAME must be set");
+
+    let credentials = aws_sdk_s3::config::Credentials::new(
+        access_key,
+        secret_key,
+        None,
+        None,
+        "static",
+    );
+
+    let config = aws_sdk_s3::Config::builder()
+        .region(Region::new(region))
+        .credentials_provider(credentials)
+        .build();
+
+    let client = Client::from_conf(config);
+
+    let filename = "example.jpg";
+
+    let presigning_config = match PresigningConfig::expires_in(Duration::from_secs(3600)) {
+        Ok(cfg) => cfg,
+        Err(e) => return HttpResponse::InternalServerError().body(format!("Invalid expiration config: {}", e)),
+    };
+
+    let presigned_url = client
+        .put_object()
+        .bucket(&bucket_name)
+        .key(filename)
+        .presigned(presigning_config)
+        .await;
+
+    match presigned_url {
+        Ok(presigned_request) => {
+            let url = presigned_request.uri().to_string();
+            HttpResponse::Ok().json(url)
+        },
+        Err(e) => HttpResponse::InternalServerError().body(format!("Failed to generate presigned URL: {}", e)),
+    }
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
@@ -80,6 +131,7 @@ async fn main() -> std::io::Result<()> {
             )
             .app_data(pool_data.clone())
             .service(check_s3_authentication)
+            .service(generate_presigned_url)
             .configure(routes::folder::config)
     })
     .bind(("0.0.0.0", 8000))?
