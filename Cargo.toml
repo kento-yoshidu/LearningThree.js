@@ -14,3 +14,7 @@ chrono = { version = "0.4", features = ["serde"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 aws-config = "0.55.3"
 aws-sdk-s3 = "0.26.0"
+uuid = { version = "1", features = ["v4"] }
+mime = "0.3"
+futures-util = "0.3"
+actix-multipart = "0.6"
