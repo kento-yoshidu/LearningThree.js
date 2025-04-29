@@ -1,5 +1,7 @@
 use serde::Serialize;
 
+use super::tag::TagResponse;
+
 #[derive(Serialize, Debug)]
 pub struct Photo {
     pub id: i32,
@@ -8,5 +10,5 @@ pub struct Photo {
     pub folder_id: Option<String>,
     pub description: Option<String>,
     pub image_path: String,
-    pub tags: Vec<String>,
+    pub tags: Vec<TagResponse>,
 }

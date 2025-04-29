@@ -1,6 +1,6 @@
 mod models;
 mod handlers {
-    pub mod folder_handler;
+    pub mod files_handler;
     pub mod tags_handler;
 }
 mod routes {
