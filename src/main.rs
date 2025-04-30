@@ -10,12 +10,21 @@ mod routes {
 
 use std::env;
 use std::time::SystemTime;
-use actix_web::{web, App, HttpServer, Responder, get};
+use actix_web::{web, App, HttpServer, HttpResponse, Responder, get, post};
 use actix_cors::Cors;
 use sqlx::PgPool;
 use dotenvy::dotenv;
 use aws_sdk_s3::{Client, Config};
 use aws_sdk_s3::config::{Credentials, Region};
+use serde::Deserialize;
+
+#[derive(Deserialize)]
+pub struct PhotoCreateRequest {
+    pub image_path: String,
+    pub title: Option<String>,
+    pub folder_id: Option<i32>,
+    pub description: Option<String>,
+}
 
 async fn verify_s3_credentials() -> String {
     dotenv().ok();
@@ -59,6 +68,36 @@ async fn check_s3_authentication() -> impl Responder {
     verify_s3_credentials().await
 }
 
+#[post("/register-photo")]
+async fn register_photo(
+    db_pool: web::Data<sqlx::PgPool>,
+    payload: web::Json<PhotoCreateRequest>,
+) -> impl Responder {
+    println!("{:?}", payload.folder_id);
+
+    let result = sqlx::query!(
+        r#"
+        INSERT INTO photos (user_id, title, folder_id, description, image_path)
+        VALUES ($1, $2, $3, $4, $5)
+        "#,
+        Some(1), // Todo: user_id受け取る
+        payload.title.as_deref(),
+        payload.folder_id,
+        payload.description.as_deref(),
+        payload.image_path,
+    )
+    .execute(db_pool.get_ref())
+    .await;
+
+    match result {
+        Ok(_) => HttpResponse::Ok().body("保存成功"),
+        Err(e) => {
+            eprintln!("DB保存エラー: {:?}", e);
+            HttpResponse::InternalServerError().body("保存失敗")
+        }
+    }
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
@@ -81,6 +120,7 @@ async fn main() -> std::io::Result<()> {
             )
             .app_data(pool_data.clone())
             .service(check_s3_authentication)
+            .service(register_photo)
             .configure(routes::routes::config)
     })
     .bind(("0.0.0.0", 8000))?
