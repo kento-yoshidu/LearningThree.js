@@ -1,7 +1,6 @@
 use std::collections::HashMap;
-
-use serde::Serialize;
-use actix_web::{web, get, HttpResponse, Responder};
+use serde::{Serialize, Deserialize};
+use actix_web::{web, get, post, HttpResponse, Responder};
 use sqlx::PgPool;
 use crate::models::{tag::TagResponse, Breadcrumb, Folder, Photo, Tag};
 
@@ -11,6 +10,14 @@ struct FolderContents {
     photos: Vec<Photo>,
     child_folders: Vec<Folder>,
     breadcrumbs: Vec<Breadcrumb>,
+}
+
+#[derive(Deserialize)]
+pub struct PhotoCreateRequest {
+    pub image_path: String,
+    pub title: Option<String>,
+    pub folder_id: Option<i32>,
+    pub description: Option<String>,
 }
 
 #[get("/files/{folder_id}/{user_id}")]
@@ -177,4 +184,34 @@ pub async fn get_folder_contents(path: web::Path<(i32, i32)>, db: web::Data<PgPo
         child_folders,
         breadcrumbs,
     })
+}
+
+#[post("/register-photo")]
+pub async fn register_photo(
+    db_pool: web::Data<sqlx::PgPool>,
+    payload: web::Json<PhotoCreateRequest>,
+) -> impl Responder {
+    println!("{:?}", payload.folder_id);
+
+    let result = sqlx::query!(
+        r#"
+        INSERT INTO photos (user_id, title, folder_id, description, image_path)
+        VALUES ($1, $2, $3, $4, $5)
+        "#,
+        Some(1), // Todo: user_id受け取る
+        payload.title.as_deref(),
+        payload.folder_id,
+        payload.description.as_deref(),
+        payload.image_path,
+    )
+    .execute(db_pool.get_ref())
+    .await;
+
+    match result {
+        Ok(_) => HttpResponse::Ok().body("保存成功"),
+        Err(e) => {
+            eprintln!("DB保存エラー: {:?}", e);
+            HttpResponse::InternalServerError().body("保存失敗")
+        }
+    }
 }
