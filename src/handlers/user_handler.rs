@@ -1,7 +1,9 @@
 use actix_web::{post, web, HttpResponse, Responder};
-use bcrypt;
+use bcrypt::verify;
+use chrono::{Utc, Duration};
+use jsonwebtoken::{encode, Header, EncodingKey};
 
-use crate::models::user::UserCreateRequest;
+use crate::models::{user::{Claims, LoginRequest, UserCreateRequest}, User};
 
 #[post("signup")]
 async fn signup(db_pool: web::Data<sqlx::PgPool>, paylod: web::Json<UserCreateRequest>) -> impl Responder {
@@ -24,4 +26,53 @@ async fn signup(db_pool: web::Data<sqlx::PgPool>, paylod: web::Json<UserCreateRe
             HttpResponse::InternalServerError().body("保存失敗")
         }
     }
+}
+
+#[post("signin")]
+pub async fn signin(db_pool: web::Data<sqlx::PgPool>, form: web::Json<LoginRequest>) -> impl Responder {
+    let user = sqlx::query_as::<_, User>(
+        "SELECT
+            id,
+            name,
+            email,
+            password_hash
+        FROM
+            users
+        WHERE
+            email = $1"
+    )
+    .bind(&form.email)
+    .fetch_optional(db_pool.get_ref())
+    .await;
+
+    println!("{:?}", user);
+
+    let user = match user {
+        Ok(Some(u)) => u,
+        _ => return HttpResponse::Unauthorized().body("ユーザーが見つかりません"),
+    };
+
+    // パスワード照合
+    let is_valid = verify(&form.password, &user.password_hash).unwrap_or(false);
+    if !is_valid {
+        return HttpResponse::Unauthorized().body("パスワードが間違っています");
+    }
+
+    // JWT生成
+    let expiration = Utc::now()
+        .checked_add_signed(Duration::hours(24))
+        .unwrap()
+        .timestamp();
+
+    let claims = Claims {
+        sub: user.id.to_string(),
+        exp: expiration as usize,
+    };
+
+    const SECRET: &[u8] = b"secret";
+
+    let token = encode(&Header::default(), &claims, &EncodingKey::from_secret(SECRET))
+        .unwrap();
+
+    HttpResponse::Ok().json(serde_json::json!({ "token": token }))
 }
