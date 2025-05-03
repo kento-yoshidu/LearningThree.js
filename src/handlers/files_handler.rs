@@ -22,6 +22,8 @@ pub struct PhotoCreateRequest {
 
 #[get("/files/{folder_id}/{user_id}")]
 pub async fn get_folder_contents(path: web::Path<(i32, i32)>, db: web::Data<PgPool>) -> impl Responder {
+    println!("---");
+
     let (folder_id, user_id) = path.into_inner();
 
     let folder_rows = sqlx::query!(

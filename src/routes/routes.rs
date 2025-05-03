@@ -8,8 +8,8 @@ use crate::handlers::generate_presigned_url::generate_presigned_url;
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg
-        .service(signup)
-        .service(signin)
+        // .service(signup)
+        // .service(signin)
         .service(get_folder_contents)
         .service(register_photo)
         .service(create_folder)
