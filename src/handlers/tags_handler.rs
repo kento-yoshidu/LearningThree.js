@@ -1,10 +1,16 @@
-use actix_web::{web, get, HttpResponse, Responder};
+use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
 use sqlx::PgPool;
-use crate::models::Tag;
+use crate::{handlers::auth_handler::extract_user_from_jwt, models::Tag};
 
-#[get("/tags/{user_id}")]
-pub async fn get_tags(path: web::Path<i32>, db: web::Data<PgPool>) -> impl Responder {
-    let user_id = path.into_inner();
+#[get("/tags")]
+pub async fn get_tags(
+    req: HttpRequest,
+    db: web::Data<PgPool>,
+) -> impl Responder {
+    let claims = match extract_user_from_jwt(&req) {
+        Ok(c) => c,
+        Err(resp) => return resp,
+    };
 
     let tag_rows = sqlx::query!(
         "SELECT
@@ -14,7 +20,7 @@ pub async fn get_tags(path: web::Path<i32>, db: web::Data<PgPool>) -> impl Respo
         WHERE
             user_id = $1
         ",
-        user_id,
+        claims.user_id,
     )
     .fetch_all(db.get_ref())
     .await;

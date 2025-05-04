@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
 use sqlx::PgPool;
 use crate::models::{tag::TagResponse, Breadcrumb, Folder, Photo, Tag};
-use crate::handlers::auth_handler::decode_jwt;
+use crate::handlers::auth_handler::extract_user_from_jwt;
 
 #[derive(Serialize, Debug)]
 struct FolderContents {
@@ -27,23 +27,9 @@ pub async fn get_folder_contents(
     path: web::Path<i32>,
     db: web::Data<PgPool>
 ) -> impl Responder {
-    let token = req
-        .headers()
-        .get("Authorization")
-        .and_then(|header| header.to_str().ok())
-        .and_then(|header_str| header_str.strip_prefix("Bearer "))
-        .map(String::from);
-
-    let token = match token {
-        Some(t) => t,
-        None => return HttpResponse::Unauthorized().body("Missing Authorization token"),
-    };
-
-    let user_id = match decode_jwt(&token) {
-        Ok(user_id) => user_id,
-        Err(err) => {
-            return HttpResponse::Unauthorized().body("Invalid token");
-        },
+    let claims = match extract_user_from_jwt(&req) {
+        Ok(c) => c,
+        Err(resp) => return resp,
     };
 
     let folder_id = path.into_inner();
@@ -61,7 +47,7 @@ pub async fn get_folder_contents(
             id = $1 AND
             user_id = $2",
         folder_id,
-        user_id,
+        claims.user_id,
     )
     .fetch_all(db.get_ref())
     .await;
@@ -92,7 +78,7 @@ pub async fn get_folder_contents(
             parent_id = $1 AND
             user_id = $2",
         folder_id,
-        user_id,
+        claims.user_id,
     )
     .fetch_all(db.get_ref())
     .await;
@@ -122,7 +108,7 @@ pub async fn get_folder_contents(
             folder_id = $1 AND
             user_id = $2",
         folder_id,
-        user_id,
+        claims.user_id,
     )
     .fetch_all(db.get_ref())
     .await;
@@ -173,7 +159,7 @@ pub async fn get_folder_contents(
 
     // パンくずリスト
     let breadcrumb_rows = sqlx::query!(
-        r#"
+        "
         WITH RECURSIVE breadcrumb AS (
             SELECT id, name, parent_id
             FROM folders
@@ -185,10 +171,13 @@ pub async fn get_folder_contents(
             FROM folders f
             JOIN breadcrumb b ON f.id = b.parent_id
         )
-        SELECT id, name
-        FROM breadcrumb
+        SELECT
+            id,
+            name
+        FROM
+            breadcrumb
         ORDER BY parent_id NULLS FIRST;
-        "#,
+        ",
         folder_id
     )
     .fetch_all(db.get_ref())
@@ -212,15 +201,23 @@ pub async fn get_folder_contents(
 
 #[post("/register-photo")]
 pub async fn register_photo(
+    req: HttpRequest,
     db_pool: web::Data<sqlx::PgPool>,
     payload: web::Json<PhotoCreateRequest>,
 ) -> impl Responder {
+    let claims = match extract_user_from_jwt(&req) {
+        Ok(c) => c,
+        Err(resp) => return resp,
+    };
+
     let result = sqlx::query!(
-        r#"
-        INSERT INTO photos (user_id, title, folder_id, description, image_path)
-        VALUES ($1, $2, $3, $4, $5)
-        "#,
-        Some(1), // Todo: user_id受け取る
+        "
+        INSERT INTO photos
+            (user_id, title, folder_id, description, image_path)
+        VALUES
+            ($1, $2, $3, $4, $5)
+        ",
+        claims.user_id,
         payload.title.as_deref(),
         payload.folder_id,
         payload.description.as_deref(),

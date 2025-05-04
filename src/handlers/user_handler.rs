@@ -2,7 +2,6 @@ use actix_web::{post, web, HttpResponse, Responder};
 use bcrypt::verify;
 use chrono::{Utc, Duration};
 use jsonwebtoken::{encode, Header, EncodingKey};
-
 use crate::models::{user::{Claims, LoginRequest, UserCreateRequest}, User};
 
 #[post("signup")]
@@ -10,8 +9,10 @@ async fn signup(db_pool: web::Data<sqlx::PgPool>, paylod: web::Json<UserCreateRe
     let hashed = bcrypt::hash(&paylod.password, bcrypt::DEFAULT_COST).unwrap();
 
     let result = sqlx::query!(
-        "INSERT INTO users (name, email, password_hash)
-        VALUES ($1, $2, $3)",
+        "INSERT INTO users
+            (name, email, password_hash)
+        VALUES
+            ($1, $2, $3)",
         paylod.name,
         paylod.email,
         hashed
@@ -64,7 +65,7 @@ pub async fn signin(db_pool: web::Data<sqlx::PgPool>, form: web::Json<LoginReque
         .timestamp();
 
     let claims = Claims {
-        sub: user.id.to_string(),
+        user_id: user.id,
         root_folder: user.root_folder.unwrap(),
         exp: expiration as usize,
     };

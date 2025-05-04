@@ -24,7 +24,7 @@ pub struct LoginRequest {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: String,
+    pub user_id: i32,
     pub root_folder: i32,
     pub exp: usize,
 }
