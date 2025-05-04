@@ -1,5 +1,4 @@
 use serde::Serialize;
-
 use super::tag::TagResponse;
 
 #[derive(Serialize, Debug)]

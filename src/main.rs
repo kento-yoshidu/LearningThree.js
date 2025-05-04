@@ -16,13 +16,13 @@ use std::time::SystemTime;
 use actix_web::{web, App, HttpServer, Responder, get};
 use actix_cors::Cors;
 use actix_web_httpauth::middleware::HttpAuthentication;
-use handlers::auth_handler::{validate_jwt, decode_jwt};
-use handlers::user_handler::{signin, signup};
 use sqlx::PgPool;
 use dotenvy::dotenv;
 use aws_sdk_s3::{Client, Config};
 use aws_sdk_s3::config::{Credentials, Region};
 use crate::routes::routes::config as protected_routes;
+use handlers::auth_handler::validate_jwt;
+use handlers::user_handler::{signin, signup};
 
 async fn verify_s3_credentials() -> String {
     dotenv().ok();
@@ -91,7 +91,7 @@ async fn main() -> std::io::Result<()> {
             .service(signup)
             // 認証が必要なルート群
             .service(
-                web::scope("") // 必要なら prefix をつける（例: /api）
+                web::scope("")
                     .wrap(HttpAuthentication::bearer(validate_jwt))
                     .configure(protected_routes),
             )
