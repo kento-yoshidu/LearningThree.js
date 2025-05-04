@@ -35,7 +35,8 @@ pub async fn signin(db_pool: web::Data<sqlx::PgPool>, form: web::Json<LoginReque
             id,
             name,
             email,
-            password_hash
+            password_hash,
+            root_folder
         FROM
             users
         WHERE
@@ -44,8 +45,6 @@ pub async fn signin(db_pool: web::Data<sqlx::PgPool>, form: web::Json<LoginReque
     .bind(&form.email)
     .fetch_optional(db_pool.get_ref())
     .await;
-
-    println!("{:?}", user);
 
     let user = match user {
         Ok(Some(u)) => u,
@@ -66,6 +65,7 @@ pub async fn signin(db_pool: web::Data<sqlx::PgPool>, form: web::Json<LoginReque
 
     let claims = Claims {
         sub: user.id.to_string(),
+        root_folder: user.root_folder.unwrap(),
         exp: expiration as usize,
     };
 
