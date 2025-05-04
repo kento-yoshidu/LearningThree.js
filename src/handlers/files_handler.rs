@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
-use actix_web::{web, get, post, HttpResponse, Responder};
+use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
 use sqlx::PgPool;
 use crate::models::{tag::TagResponse, Breadcrumb, Folder, Photo, Tag};
+use crate::handlers::auth_handler::decode_jwt;
 
 #[derive(Serialize, Debug)]
 struct FolderContents {
@@ -20,11 +21,32 @@ pub struct PhotoCreateRequest {
     pub description: Option<String>,
 }
 
-#[get("/files/{folder_id}/{user_id}")]
-pub async fn get_folder_contents(path: web::Path<(i32, i32)>, db: web::Data<PgPool>) -> impl Responder {
-    println!("---");
+#[get("/files/{folder_id}")]
+pub async fn get_folder_contents(
+    req: HttpRequest,
+    path: web::Path<i32>,
+    db: web::Data<PgPool>
+) -> impl Responder {
+    let token = req
+        .headers()
+        .get("Authorization")
+        .and_then(|header| header.to_str().ok())
+        .and_then(|header_str| header_str.strip_prefix("Bearer "))
+        .map(String::from);
 
-    let (folder_id, user_id) = path.into_inner();
+    let token = match token {
+        Some(t) => t,
+        None => return HttpResponse::Unauthorized().body("Missing Authorization token"),
+    };
+
+    let user_id = match decode_jwt(&token) {
+        Ok(user_id) => user_id,
+        Err(err) => {
+            return HttpResponse::Unauthorized().body("Invalid token");
+        },
+    };
+
+    let folder_id = path.into_inner();
 
     let folder_rows = sqlx::query!(
         "SELECT
@@ -193,8 +215,6 @@ pub async fn register_photo(
     db_pool: web::Data<sqlx::PgPool>,
     payload: web::Json<PhotoCreateRequest>,
 ) -> impl Responder {
-    println!("{:?}", payload.folder_id);
-
     let result = sqlx::query!(
         r#"
         INSERT INTO photos (user_id, title, folder_id, description, image_path)

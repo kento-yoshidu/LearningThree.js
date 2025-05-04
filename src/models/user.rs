@@ -6,6 +6,7 @@ pub struct User {
     pub name: String,
     pub email: String,
     pub password_hash: String,
+    pub root_folder: Option<i32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -24,5 +25,6 @@ pub struct LoginRequest {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String,
+    pub root_folder: i32,
     pub exp: usize,
 }

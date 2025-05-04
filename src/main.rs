@@ -16,7 +16,7 @@ use std::time::SystemTime;
 use actix_web::{web, App, HttpServer, Responder, get};
 use actix_cors::Cors;
 use actix_web_httpauth::middleware::HttpAuthentication;
-use handlers::auth_handler::validate_jwt;
+use handlers::auth_handler::{validate_jwt, decode_jwt};
 use handlers::user_handler::{signin, signup};
 use sqlx::PgPool;
 use dotenvy::dotenv;
