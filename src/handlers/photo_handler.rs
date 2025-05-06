@@ -1,9 +1,6 @@
 use actix_web::{delete, post, web, HttpRequest, HttpResponse, Responder};
-use crate::handlers::auth_handler::extract_user_from_jwt;
+use crate::{handlers::auth_handler::extract_user_from_jwt, utils::s3::create_s3_client};
 use super::files_handler::PhotoCreateRequest;
-use std::env;
-use aws_sdk_s3::config::{Credentials, Region};
-use aws_sdk_s3::Client;
 
 #[post("/register-photo")]
 pub async fn register_photo(
@@ -47,26 +44,14 @@ pub async fn delete_photo(
     db_pool: web::Data<sqlx::PgPool>,
     photo_ids: web::Json<Vec<i32>>,
 ) -> impl Responder {
-    let claims = match extract_user_from_jwt(&req) {
-        Ok(c) => c,
-        Err(resp) => return resp,
-    };
-
     if photo_ids.is_empty() {
         return HttpResponse::BadRequest().body("削除対象のIDがありません");
     }
 
-    let access_key = env::var("AWS_ACCESS_KEY_ID").unwrap();
-    let secret_key = env::var("AWS_SECRET_ACCESS_KEY").unwrap();
-    let region = env::var("AWS_REGION").unwrap_or_else(|_| "us-west-2".to_string());
-    let bucket_name = env::var("MY_BUCKET_NAME").expect("MY_BUCKET_NAME must be set");
-
-    let credentials = Credentials::new(access_key, secret_key, None, None, "static");
-    let config = aws_sdk_s3::Config::builder()
-        .region(Region::new(region))
-        .credentials_provider(credentials)
-        .build();
-    let client = Client::from_conf(config);
+    let claims = match extract_user_from_jwt(&req) {
+        Ok(c) => c,
+        Err(resp) => return resp,
+    };
 
     let rows = sqlx::query!(
         r#"
@@ -84,6 +69,9 @@ pub async fn delete_photo(
     };
 
     let mut delete_errors = Vec::new();
+
+    let (client, bucket_name, _) = create_s3_client();
+
     for url in filenames {
         let key = match url.rsplit('/').next() {
             Some(k) => k,

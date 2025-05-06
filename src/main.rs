@@ -11,56 +11,20 @@ mod handlers {
 mod routes {
     pub mod routes;
 }
+mod utils {
+    pub mod s3;
+}
 
 use std::env;
-use std::time::SystemTime;
 use actix_web::{web, App, HttpServer, Responder, get};
 use actix_cors::Cors;
 use actix_web_httpauth::middleware::HttpAuthentication;
 use sqlx::PgPool;
 use dotenvy::dotenv;
-use aws_sdk_s3::{Client, Config};
-use aws_sdk_s3::config::{Credentials, Region};
+use utils::s3::verify_s3_credentials;
 use crate::routes::routes::config as protected_routes;
 use handlers::auth_handler::validate_jwt;
 use handlers::user_handler::{signin, signup};
-
-async fn verify_s3_credentials() -> String {
-    dotenv().ok();
-
-    let access_key = env::var("AWS_ACCESS_KEY_ID").expect("AWS_ACCESS_KEY_ID not set");
-    let secret_key = env::var("AWS_SECRET_ACCESS_KEY").expect("AWS_SECRET_ACCESS_KEY not set");
-    let region = env::var("AWS_REGION").unwrap_or_else(|_| "us-west-2".to_string());
-
-    let credentials = Credentials::new(
-        access_key,
-        secret_key,
-        None,
-        Some(SystemTime::now()),
-        "static credentials",
-    );
-
-    let config = Config::builder()
-        .region(Region::new(region))
-        .credentials_provider(credentials)
-        .build();
-
-    let client = Client::from_conf(config);
-
-    match client.list_buckets().send().await {
-        Ok(response) => {
-            let bucket_names: Vec<String> = response.buckets().unwrap_or_default()
-                .iter()
-                .filter_map(|bucket| bucket.name().map(|s| s.to_string()))
-                .collect();
-
-            format!("success: Buckets: {:?}", bucket_names)
-        }
-        Err(e) => {
-            format!("failed: {}", e)
-        }
-    }
-}
 
 #[get("/check-s3-auth")]
 async fn check_s3_authentication() -> impl Responder {

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
-use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
+use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
 use sqlx::PgPool;
 use crate::models::{tag::TagResponse, Breadcrumb, Folder, Photo, Tag};
 use crate::handlers::auth_handler::extract_user_from_jwt;
