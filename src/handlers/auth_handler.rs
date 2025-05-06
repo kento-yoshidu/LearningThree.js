@@ -55,10 +55,9 @@ pub fn extract_user_from_jwt(req: &HttpRequest) -> Result<Claims, HttpResponse> 
 mod tests {
     use super::*;
 
-    use actix_web::test::{self, TestRequest};
+    use actix_web::test::TestRequest;
     use chrono::{Utc, Duration};
     use jsonwebtoken::{encode, EncodingKey, Header};
-    use jwt_simple::claims;
     use crate::models::user::Claims;
 
     const SECRET: &[u8] = b"secret";

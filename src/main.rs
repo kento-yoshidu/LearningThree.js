@@ -1,11 +1,12 @@
 mod models;
 mod handlers {
-    pub mod user_handler;
+    pub mod auth_handler;
     pub mod files_handler;
     pub mod folder_handler;
-    pub mod tags_handler;
     pub mod generate_presigned_url;
-    pub mod auth_handler;
+    pub mod photo_handler;
+    pub mod user_handler;
+    pub mod tags_handler;
 }
 mod routes {
     pub mod routes;
@@ -89,10 +90,9 @@ async fn main() -> std::io::Result<()> {
             .app_data(pool_data.clone())
             .service(signin)
             .service(signup)
-            // 認証が必要なルート群
             .service(
                 web::scope("")
-                    .wrap(HttpAuthentication::bearer(validate_jwt))
+                    .wrap(HttpAuthentication::with_fn(validate_jwt))
                     .configure(protected_routes),
             )
         })
