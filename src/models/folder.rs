@@ -15,3 +15,8 @@ pub struct FolderCreateRequest {
     pub description: Option<String>,
     pub parent_id: Option<i32>,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct FolderDeleteRequest {
+    pub folder_id: i32,
+}
