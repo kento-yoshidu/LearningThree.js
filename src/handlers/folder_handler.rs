@@ -1,8 +1,8 @@
-use actix_web::{delete, post, web::{self, Payload}, HttpRequest, HttpResponse, Responder};
+use actix_web::{delete, post, web::{self}, HttpRequest, HttpResponse, Responder};
 use serde::Deserialize;
 use crate::{handlers::auth_handler::extract_user_from_jwt, models::folder::FolderDeleteRequest};
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct FolderCreateRequest {
     pub name: String,
     pub description: Option<String>,
@@ -107,8 +107,6 @@ pub async fn delete_folder(
         }
     };
 
-    println!("{:?}", photos);
-
     if photos.is_empty() {
         // フォルダーを削除
         match sqlx::query!(
@@ -136,4 +134,55 @@ pub async fn delete_folder(
         eprintln!("フォルダ内に {} 件の写真が存在します。削除できません。", photos.len());
         HttpResponse::BadRequest().body("フォルダ内に写真が存在するため削除できません")
     }
+
+    // // S3削除
+    // let (s3_client, bucket_name, _) = create_s3_client();
+    // for photo in &photos {
+    //     if let Some(s3_key) = &photo.s3_key {
+    //         if let Err(e) = s3_client
+    //             .delete_object()
+    //             .bucket(&bucket_name)
+    //             .key(s3_key)
+    //             .send()
+    //             .await
+    //         {
+    //             eprintln!("S3削除失敗: {:?}", e);
+    //         }
+    //     }
+    // }
+
+    // // DBからphotos削除
+    // if let Err(e) = sqlx::query!(
+    //     "DELETE FROM photos WHERE folder_id = $1",
+    //     folder_id
+    // )
+    // .execute(&mut *tx)
+    // .await
+    // {
+    //     eprintln!("写真削除失敗: {:?}", e);
+    //     return HttpResponse::InternalServerError().body("内部エラー");
+    // }
+
+    // // フォルダ削除
+    // if let Err(e) = sqlx::query!(
+    //     "DELETE FROM folders WHERE id = $1",
+    //     folder_id
+    // )
+    // .execute(&mut *tx)
+    // .await
+    // {
+    //     eprintln!("フォルダ削除失敗: {:?}", e);
+    //     return HttpResponse::InternalServerError().body("内部エラー");
+    // }
+
+    // // トランザクションコミット
+    // if let Err(e) = tx.commit().await {
+    //     eprintln!("トランザクションコミット失敗: {:?}", e);
+    //     return HttpResponse::InternalServerError().body("内部エラー");
+    // }
+
+    // HttpResponse::Ok().json(serde_json::json!({
+    //     "message": "フォルダ削除成功",
+    //     "deleted_folder_id": folder_id
+    // }))
 }

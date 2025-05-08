@@ -1,6 +1,9 @@
 use actix_web::web;
 
-use crate::handlers::files_handler::get_folder_contents;
+use crate::handlers::files_handler::{
+    get_folder_contents,
+    get_all_photos,
+};
 use crate::handlers::photo_handler::{
     delete_photo,
     register_photo,
@@ -15,6 +18,7 @@ use crate::handlers::generate_presigned_url::generate_presigned_url;
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg
         .service(get_folder_contents)
+        .service(get_all_photos)
         .service(register_photo)
         .service(delete_photo)
         .service(create_folder)
