@@ -101,7 +101,8 @@ pub async fn get_folder_contents(
             user_id,
             title,
             description,
-            image_path
+            image_path,
+            uploaded_at
         FROM
             photos
         WHERE
@@ -153,6 +154,7 @@ pub async fn get_folder_contents(
         title: Some(row.title),
         description: row.description,
         image_path: row.image_path,
+        uploaded_at: row.uploaded_at,
         folder_id: Some(folder_id.to_string()),
         tags: tag_map.remove(&row.id).unwrap_or_default(),
     }).collect();
@@ -216,6 +218,7 @@ pub async fn get_all_photos(
             title,
             description,
             image_path,
+            uploaded_at,
             folder_id
         FROM
             photos
@@ -265,6 +268,7 @@ pub async fn get_all_photos(
         title: Some(row.title),
         description: row.description,
         image_path: row.image_path,
+        uploaded_at: row.uploaded_at,
         folder_id: row.folder_id.map(|id| id.to_string()),
         tags: tag_map.remove(&row.id).unwrap_or_default(),
     }).collect();
