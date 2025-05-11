@@ -54,9 +54,13 @@ pub async fn delete_photo(
     };
 
     let rows = sqlx::query!(
-        r#"
-        SELECT image_path FROM photos WHERE id = ANY($1) AND user_id = $2
-        "#,
+        "
+        SELECT
+            image_path
+        FROM
+            photos
+        WHERE id = ANY($1) AND user_id = $2
+        ",
         &photo_ids[..],
         claims.user_id
     )
