@@ -1,6 +1,6 @@
-use actix_web::{delete, post, web::{self}, HttpRequest, HttpResponse, Responder};
+use actix_web::{delete, patch, post, web::{self}, HttpRequest, HttpResponse, Responder};
 use serde::Deserialize;
-use crate::{handlers::auth_handler::extract_user_from_jwt, models::folder::FolderDeleteRequest};
+use crate::{handlers::auth_handler::extract_user_from_jwt, models::folder::{FolderDeleteRequest, FolderUpdateRequest}};
 
 #[derive(Debug, Deserialize)]
 pub struct FolderCreateRequest {
@@ -185,4 +185,60 @@ pub async fn delete_folder(
     //     "message": "フォルダ削除成功",
     //     "deleted_folder_id": folder_id
     // }))
+}
+
+#[patch("/update-folder")]
+pub async fn update_folder(
+    db_pool: web::Data<sqlx::PgPool>,
+    payload: web::Json<FolderUpdateRequest>,
+    req: HttpRequest,
+) -> impl Responder {
+    let claims = match extract_user_from_jwt(&req) {
+        Ok(c) => c,
+        Err(resp) => return resp,
+    };
+
+    let folder_check = sqlx::query_scalar!(
+        "SELECT
+            id
+        FROM
+            folders
+        WHERE id = $1 AND user_id = $2",
+        payload.folder_id,
+        claims.user_id,
+    )
+    .fetch_optional(db_pool.get_ref())
+    .await;
+
+    let Some(_) = folder_check.ok().flatten() else {
+        return HttpResponse::NotFound().body("フォルダが存在しないか、権限がありません");
+    };
+
+    let result = sqlx::query!(
+        "
+        UPDATE folders
+        SET name = $1, description = $2
+        WHERE id = $3 AND user_id = $4
+        RETURNING id, name, description
+        ",
+        payload.name,
+        payload.description,
+        payload.folder_id,
+        claims.user_id
+    )
+    .fetch_one(db_pool.get_ref())
+    .await;
+
+    match result {
+        Ok(record) => HttpResponse::Ok().json(serde_json::json!({
+            "message": "フォルダの更新成功",
+            "folder_id": record.id,
+            "new_name": record.name,
+            "new_description": record.description
+        })),
+        Err(e) => {
+            eprintln!("フォルダ更新エラー: {:?}", e);
+            HttpResponse::InternalServerError().body("フォルダの更新に失敗しました")
+        }
+    }
 }

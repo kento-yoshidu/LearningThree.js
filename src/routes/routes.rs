@@ -10,6 +10,7 @@ use crate::handlers::photo_handler::{
 };
 use crate::handlers::folder_handler::{
     create_folder,
+    update_folder,
     delete_folder,
 };
 use crate::handlers::tags_handler::get_tags;
@@ -22,6 +23,7 @@ pub fn config(cfg: &mut web::ServiceConfig) {
         .service(register_photo)
         .service(delete_photo)
         .service(create_folder)
+        .service(update_folder)
         .service(delete_folder)
         .service(get_tags)
         .service(generate_presigned_url);

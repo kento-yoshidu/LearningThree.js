@@ -1,7 +1,7 @@
 use serde::Serialize;
+use serde_with::serde_as;
 use super::tag::TagResponse;
 use time::OffsetDateTime;
-use serde_with::serde_as;
 
 fn serialize_datetime<S>(
     datetime: &OffsetDateTime,
@@ -26,6 +26,7 @@ pub struct Photo {
     pub user_id: Option<i32>,
     pub title: Option<String>,
     pub folder_id: Option<String>,
+    pub folder_name: Option<String>,
     pub description: Option<String>,
     pub image_path: String,
     #[serde(serialize_with = "serialize_datetime")]

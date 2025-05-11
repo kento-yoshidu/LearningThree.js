@@ -97,17 +97,20 @@ pub async fn get_folder_contents(
     // 写真データ
     let photo_rows = sqlx::query!(
         "SELECT
-            id,
-            user_id,
-            title,
-            description,
-            image_path,
-            uploaded_at
+            photos.id,
+            photos.user_id,
+            photos.title,
+            photos.description,
+            photos.image_path,
+            photos.uploaded_at,
+            folders.name AS folder_name
         FROM
             photos
+        LEFT JOIN
+            folders ON photos.folder_id = folders.id
         WHERE
-            folder_id = $1 AND
-            user_id = $2",
+            photos.folder_id = $1 AND
+            photos.user_id = $2",
         folder_id,
         claims.user_id,
     )
@@ -156,6 +159,7 @@ pub async fn get_folder_contents(
         image_path: row.image_path,
         uploaded_at: row.uploaded_at,
         folder_id: Some(folder_id.to_string()),
+        folder_name: Some(row.folder_name),
         tags: tag_map.remove(&row.id).unwrap_or_default(),
     }).collect();
 
@@ -201,7 +205,7 @@ pub async fn get_folder_contents(
     })
 }
 
-#[get("/photos")]
+#[get("/search")]
 pub async fn get_all_photos(
     req: HttpRequest,
     db: web::Data<PgPool>
@@ -213,17 +217,20 @@ pub async fn get_all_photos(
 
     let photo_rows = sqlx::query!(
         "SELECT
-            id,
-            user_id,
-            title,
-            description,
-            image_path,
-            uploaded_at,
-            folder_id
+            photos.id,
+            photos.user_id,
+            photos.title,
+            photos.description,
+            photos.image_path,
+            photos.uploaded_at,
+            photos.folder_id,
+            folders.name AS folder_name
         FROM
             photos
+        LEFT JOIN
+            folders ON photos.folder_id = folders.id
         WHERE
-            user_id = $1",
+            photos.user_id = $1",
         claims.user_id,
     )
     .fetch_all(db.get_ref())
@@ -270,6 +277,7 @@ pub async fn get_all_photos(
         image_path: row.image_path,
         uploaded_at: row.uploaded_at,
         folder_id: row.folder_id.map(|id| id.to_string()),
+        folder_name: Some(row.folder_name),
         tags: tag_map.remove(&row.id).unwrap_or_default(),
     }).collect();
 

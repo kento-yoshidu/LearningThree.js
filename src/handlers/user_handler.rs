@@ -31,6 +31,8 @@ async fn signup(db_pool: web::Data<sqlx::PgPool>, paylod: web::Json<UserCreateRe
 
 #[post("signin")]
 pub async fn signin(db_pool: web::Data<sqlx::PgPool>, form: web::Json<LoginRequest>) -> impl Responder {
+    println!("{:?}", form);
+
     let user = sqlx::query_as::<_, User>(
         "SELECT
             id,
@@ -46,6 +48,8 @@ pub async fn signin(db_pool: web::Data<sqlx::PgPool>, form: web::Json<LoginReque
     .bind(&form.email)
     .fetch_optional(db_pool.get_ref())
     .await;
+
+    println!("test {:?}", user);
 
     let user = match user {
         Ok(Some(u)) => u,

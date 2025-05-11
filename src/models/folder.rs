@@ -17,6 +17,13 @@ pub struct FolderCreateRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct FolderUpdateRequest {
+    pub name: String,
+    pub description: Option<String>,
+    pub folder_id: i32,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct FolderDeleteRequest {
     pub folder_id: i32,
 }
