@@ -1,5 +1,5 @@
-use actix_web::{delete, post, web, HttpRequest, HttpResponse, Responder};
-use crate::{handlers::auth_handler::extract_user_from_jwt, utils::s3::create_s3_client};
+use actix_web::{delete, post, put, web, HttpRequest, HttpResponse, Responder};
+use crate::{handlers::auth_handler::extract_user_from_jwt, models::photo::PhotoUpdateRequest, utils::s3::create_s3_client};
 use super::files_handler::PhotoCreateRequest;
 
 #[post("/register-photo")]
@@ -34,6 +34,47 @@ pub async fn register_photo(
         Err(e) => {
             eprintln!("DB保存エラー: {:?}", e);
             HttpResponse::InternalServerError().body("保存失敗")
+        }
+    }
+}
+
+#[put("/update-photo")]
+pub async fn update_photo(
+    req: HttpRequest,
+    db_pool: web::Data<sqlx::PgPool>,
+    payload: web::Json<PhotoUpdateRequest>
+) -> impl Responder {
+    let claims = match extract_user_from_jwt(&req) {
+        Ok(c) => c,
+        Err(resp) => return resp,
+    };
+
+    let result = sqlx::query!(
+        "
+        UPDATE photos
+        SET title = COALESCE($1, title),
+            description = COALESCE($2, description)
+        WHERE id = $3 AND user_id = $4
+        ",
+        payload.title.as_deref(),
+        payload.description.as_deref(),
+        payload.id,
+        claims.user_id,
+    )
+    .execute(db_pool.get_ref())
+    .await;
+
+    match result {
+        Ok(res) => {
+            if res.rows_affected() == 0 {
+                HttpResponse::NotFound().body("写真が見つからない、または更新権限がありません")
+            } else {
+                HttpResponse::Ok().body("更新成功")
+            }
+        }
+        Err(e) => {
+            eprintln!("DB更新エラー: {:?}", e);
+            HttpResponse::InternalServerError().body("更新失敗")
         }
     }
 }

@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use serde_with::serde_as;
 use super::tag::TagResponse;
 use time::OffsetDateTime;
@@ -32,4 +32,11 @@ pub struct Photo {
     #[serde(serialize_with = "serialize_datetime")]
     pub uploaded_at: OffsetDateTime,
     pub tags: Vec<TagResponse>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PhotoUpdateRequest {
+    pub id: i32,
+    pub title: Option<String>,
+    pub description: Option<String>,
 }

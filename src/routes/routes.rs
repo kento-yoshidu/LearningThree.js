@@ -5,8 +5,9 @@ use crate::handlers::files_handler::{
     get_all_photos,
 };
 use crate::handlers::photo_handler::{
-    delete_photo,
     register_photo,
+    update_photo,
+    delete_photo,
 };
 use crate::handlers::folder_handler::{
     create_folder,
@@ -21,6 +22,7 @@ pub fn config(cfg: &mut web::ServiceConfig) {
         .service(get_folder_contents)
         .service(get_all_photos)
         .service(register_photo)
+        .service(update_photo)
         .service(delete_photo)
         .service(create_folder)
         .service(update_folder)
