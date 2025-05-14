@@ -2398,6 +2398,7 @@ dependencies = [
  "aws-sdk-s3",
  "bcrypt",
  "chrono",
+ "derive_more 0.99.20",
  "dotenvy",
  "futures-util",
  "jsonwebtoken",

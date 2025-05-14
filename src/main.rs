@@ -14,6 +14,7 @@ mod routes {
 mod utils {
     pub mod s3;
 }
+mod message;
 
 use std::env;
 use actix_web::{web, App, HttpServer, Responder, get};
