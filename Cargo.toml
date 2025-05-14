@@ -24,3 +24,4 @@ jsonwebtoken = "9"
 time = { version = "0.3", features = ["serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 jwt-simple = "0.10"
+derive_more = "0.99"
