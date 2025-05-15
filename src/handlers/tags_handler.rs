@@ -16,7 +16,7 @@ pub async fn get_tags(
         "SELECT
             *
         FROM
-            photo_tags
+            tags
         WHERE
             user_id = $1
         ",
@@ -29,8 +29,7 @@ pub async fn get_tags(
         Ok(rows) => {
             let tags: Vec<Tag> = rows.into_iter().map(|row| Tag {
                 id: row.id,
-                photo_id: row.photo_id,
-                user_id: row.user_id,
+                user_id: Some(row.user_id),
                 tag: row.tag,
             }).collect();
 
