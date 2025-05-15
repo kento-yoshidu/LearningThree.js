@@ -47,7 +47,7 @@ async fn create_folder(
         }),
         Err(e) => {
             eprintln!("フォルダ作成エラー: {:?}", e);
-            HttpResponse::InternalServerError().body("フォルダ作成に失敗しました")
+            HttpResponse::InternalServerError().body("")
         }
     }
 }
@@ -58,8 +58,6 @@ pub async fn delete_folder(
     payload: web::Json<FolderDeleteRequest>,
     req: HttpRequest,
 ) -> impl Responder {
-    return HttpResponse::InternalServerError().body(message::AppError::DeleteFailed(message::FileType::Folder).message());
-
     let claims = match extract_user_from_jwt(&req) {
         Ok(c) => c,
         Err(resp) => return resp,

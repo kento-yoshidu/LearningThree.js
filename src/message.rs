@@ -1,5 +1,3 @@
-use actix_web::{App, HttpResponse, ResponseError};
-use chrono::format::StrftimeItems;
 use derive_more::Display;
 use serde::Serialize;
 
@@ -21,8 +19,8 @@ impl AppSuccess {
     pub fn message(&self) -> String {
         match self {
             AppSuccess::CreatedFolder => "Folder was created.".to_string(),
-            AppSuccess::UpdatedFolder(name) => format!("{} was updated.", name),
-            AppSuccess::DeletedFolder(name) => format!("{} was deleted.", name),
+            AppSuccess::UpdatedFolder(file_name) => format!("{file_name} was updated."),
+            AppSuccess::DeletedFolder(file_name) => format!("{file_name} was deleted."),
             AppSuccess::UploadedPhoto=> "Photo was uploaded".to_string(),
         }
     }

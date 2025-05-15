@@ -124,8 +124,20 @@ pub async fn get_folder_contents(
 
     let photo_ids: Vec<i32> = rows.iter().map(|row| row.id).collect();
 
+    // photo_tags テーブルと tags テーブルを結合して取得
     let photo_tag_rows = sqlx::query!(
-        "SELECT photo_id, tag, id FROM photo_tags WHERE photo_id = ANY($1)",
+        "
+        SELECT
+            photo_tag_relations.photo_id,
+            tags.id AS tag_id,
+            tags.tag
+        FROM
+            photo_tag_relations
+        INNER JOIN
+            tags ON photo_tag_relations.tag_id = tags.id
+        WHERE
+            photo_tag_relations.photo_id = ANY($1)
+        ",
         &photo_ids
     )
     .fetch_all(db.get_ref())
@@ -135,18 +147,13 @@ pub async fn get_folder_contents(
 
     if let Ok(tag_rows) = photo_tag_rows {
         for tag_row in tag_rows {
-            if let Some(photo_id) = tag_row.photo_id {
-                let tag = Tag {
-                    id: tag_row.id,
-                    photo_id: tag_row.photo_id,
-                    user_id: None,
+            tag_map
+                .entry(tag_row.photo_id)
+                .or_default()
+                .push(TagResponse {
+                    id: tag_row.tag_id,
                     tag: tag_row.tag,
-                };
-                tag_map
-                    .entry(photo_id)
-                    .or_default()
-                    .push(tag.into());
-            }
+                });
         }
     }
 
@@ -244,7 +251,16 @@ pub async fn get_all_photos(
     let photo_ids: Vec<i32> = rows.iter().map(|row| row.id).collect();
 
     let photo_tag_rows = sqlx::query!(
-        "SELECT photo_id, tag, id FROM photo_tags WHERE photo_id = ANY($1)",
+        "SELECT
+            ptr.photo_id,
+            t.id AS tag_id,
+            t.tag
+        FROM
+            photo_tag_relations ptr
+        INNER JOIN
+            tags t ON ptr.tag_id = t.id
+        WHERE
+            ptr.photo_id = ANY($1)",
         &photo_ids
     )
     .fetch_all(db.get_ref())
@@ -253,19 +269,14 @@ pub async fn get_all_photos(
     let mut tag_map: HashMap<i32, Vec<TagResponse>> = HashMap::new();
 
     if let Ok(tag_rows) = photo_tag_rows {
-        for tag_row in tag_rows {
-            if let Some(photo_id) = tag_row.photo_id {
-                let tag = Tag {
-                    id: tag_row.id,
-                    photo_id: tag_row.photo_id,
-                    user_id: None,
-                    tag: tag_row.tag,
-                };
-                tag_map
-                    .entry(photo_id)
-                    .or_default()
-                    .push(tag.into());
-            }
+        for row in tag_rows {
+            tag_map
+                .entry(row.photo_id)
+                .or_default()
+                .push(TagResponse {
+                    id: row.tag_id,
+                    tag: row.tag,
+                });
         }
     }
 
