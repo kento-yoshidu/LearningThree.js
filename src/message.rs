@@ -33,6 +33,7 @@ pub enum AppError {
     DeleteFailed(FileType),
     UploadFailed(FileType),
     InternalServerError,
+    TransactionStartFailed,
 }
 
 impl AppError {
@@ -43,6 +44,7 @@ impl AppError {
             AppError::DeleteFailed(file_type) => format!("Failed to delete {file_type}."),
             AppError::UploadFailed(file_type) => format!("Failed to upload {file_type}."),
             AppError::InternalServerError => "Internal Server Error".to_string(),
+            AppError::TransactionStartFailed => "Failed to start transaction".to_string(),
         }
     }
 }

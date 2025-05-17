@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Debug)]
 pub struct Tag {
@@ -20,4 +20,10 @@ impl From<Tag> for TagResponse {
             tag: tag.tag,
         }
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AddTagRequest {
+    pub photo_id: i32,
+    pub tag: String,
 }
