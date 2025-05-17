@@ -74,8 +74,6 @@ pub async fn delete_folder(
         }
     };
 
-    println!("{:?}", tx);
-
     let folder_check = sqlx::query_scalar!(
         "SELECT id FROM folders WHERE id = $1 AND user_id = $2",
         folder_id,

@@ -14,7 +14,11 @@ use crate::handlers::folder_handler::{
     update_folder,
     delete_folder,
 };
-use crate::handlers::tags_handler::get_tags;
+use crate::handlers::tags_handler::{
+    get_tags,
+    add_tag,
+};
+
 use crate::handlers::generate_presigned_url::generate_presigned_url;
 
 pub fn config(cfg: &mut web::ServiceConfig) {
@@ -28,5 +32,6 @@ pub fn config(cfg: &mut web::ServiceConfig) {
         .service(update_folder)
         .service(delete_folder)
         .service(get_tags)
+        .service(add_tag)
         .service(generate_presigned_url);
 }
