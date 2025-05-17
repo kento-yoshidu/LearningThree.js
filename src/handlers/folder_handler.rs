@@ -101,7 +101,6 @@ pub async fn delete_folder(
     {
         Ok(photos) => photos,
         Err(e) => {
-            eprintln!("写真取得エラー: {:?}", e);
             return HttpResponse::InternalServerError().body(message::AppError::InternalServerError.message());
         }
     };
@@ -117,14 +116,12 @@ pub async fn delete_folder(
         {
             Ok(_) => {
                 if let Err(e) = tx.commit().await {
-                    eprintln!("コミット失敗: {:?}", e);
                     return HttpResponse::InternalServerError().body(message::AppError::InternalServerError.message());
                 }
 
                 HttpResponse::Ok().json(serde_json::json!({ "message": "フォルダ削除成功" }))
             }
             Err(e) => {
-                eprintln!("フォルダ削除失敗: {:?}", e);
                 HttpResponse::InternalServerError().body(message::AppError::DeleteFailed(message::FileType::Folder).message())
             }
         }
@@ -178,7 +175,7 @@ pub async fn update_folder(
 
     match result {
         Ok(record) => HttpResponse::Ok().json(serde_json::json!({
-            "message": message::AppSuccess::UpdatedFolder("folder".to_string()).message(),
+            "message": message::AppSuccess::Updated(message::FileType::Folder).message(),
             "folder_id": record.id,
             "new_name": record.name,
             "new_description": record.description

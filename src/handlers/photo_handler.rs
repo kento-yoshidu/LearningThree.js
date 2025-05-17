@@ -1,6 +1,7 @@
 use actix_web::{delete, post, put, web, HttpRequest, HttpResponse, Responder};
 use crate::{handlers::auth_handler::extract_user_from_jwt, models::photo::PhotoUpdateRequest, utils::s3::create_s3_client};
 use super::files_handler::PhotoCreateRequest;
+use crate::message;
 
 #[post("/register-photo")]
 pub async fn register_photo(
@@ -55,26 +56,37 @@ pub async fn update_photo(
         SET title = COALESCE($1, title),
             description = COALESCE($2, description)
         WHERE id = $3 AND user_id = $4
+        RETURNING id, title, description
         ",
         payload.title.as_deref(),
         payload.description.as_deref(),
         payload.id,
         claims.user_id,
     )
-    .execute(db_pool.get_ref())
+    .fetch_optional(db_pool.get_ref())
     .await;
 
+    println!("{:?}", result);
+
     match result {
-        Ok(res) => {
-            if res.rows_affected() == 0 {
-                HttpResponse::NotFound().body("写真が見つからない、または更新権限がありません")
-            } else {
-                HttpResponse::Ok().body("更新成功")
-            }
+        Ok(Some(record)) => {
+            HttpResponse::Ok().json(serde_json::json!({
+                "message": message::AppSuccess::Updated(message::FileType::Photo).message(),
+                "id": record.id,
+                "title": record.title,
+                "description": record.description,
+            }))
+        }
+        Ok(None) => {
+            HttpResponse::NotFound().json(serde_json::json!({
+                "message": "写真が見つからない、または更新権限がありません"
+            }))
         }
         Err(e) => {
             eprintln!("DB更新エラー: {:?}", e);
-            HttpResponse::InternalServerError().body("更新失敗")
+            HttpResponse::InternalServerError().json(serde_json::json!({
+                "message": "更新失敗"
+            }))
         }
     }
 }

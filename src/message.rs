@@ -10,7 +10,7 @@ pub enum FileType {
 #[derive(Debug, Serialize)]
 pub enum AppSuccess {
     CreatedFolder,
-    UpdatedFolder(String),
+    Updated(FileType),
     DeletedFolder(String),
     UploadedPhoto,
 }
@@ -19,7 +19,7 @@ impl AppSuccess {
     pub fn message(&self) -> String {
         match self {
             AppSuccess::CreatedFolder => "Folder was created.".to_string(),
-            AppSuccess::UpdatedFolder(file_name) => format!("{file_name} was updated."),
+            AppSuccess::Updated(file_type) => format!("{file_type} was updated."),
             AppSuccess::DeletedFolder(file_name) => format!("{file_name} was deleted."),
             AppSuccess::UploadedPhoto=> "Photo was uploaded".to_string(),
         }
