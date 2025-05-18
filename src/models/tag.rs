@@ -7,6 +7,11 @@ pub struct Tag {
     pub tag: String,
 }
 
+#[derive(Serialize)]
+pub struct TagWrapper {
+    pub data: Vec<TagResponse>,
+}
+
 #[derive(Clone, Serialize, Debug)]
 pub struct TagResponse {
     pub id: i32,

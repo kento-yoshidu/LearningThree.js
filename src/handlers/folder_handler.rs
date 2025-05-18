@@ -176,9 +176,9 @@ pub async fn update_folder(
     match result {
         Ok(record) => HttpResponse::Ok().json(serde_json::json!({
             "message": message::AppSuccess::Updated(message::FileType::Folder).message(),
-            "folder_id": record.id,
-            "new_name": record.name,
-            "new_description": record.description
+            "id": record.id,
+            "name": record.name,
+            "description": record.description
         })),
         Err(e) => {
             eprintln!("フォルダ更新エラー: {:?}", e);

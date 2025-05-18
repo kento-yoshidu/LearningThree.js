@@ -1,6 +1,13 @@
 use actix_web::{get, post, web::{self, Payload}, HttpRequest, HttpResponse, Responder};
-use sqlx::{Executor, PgPool, Postgres, Transaction};
-use crate::{handlers::auth_handler::extract_user_from_jwt, message::AppError, models::{tag::{AddTagRequest, TagResponse}, Tag}};
+use sqlx::{PgPool, Postgres, Transaction};
+use crate::{
+    handlers::auth_handler::extract_user_from_jwt,
+    message::AppError,
+    models::{
+        tag::{AddTagRequest, TagResponse},
+    },
+};
+use crate::models::tag::TagWrapper;
 
 #[get("/tags")]
 pub async fn get_tags(
@@ -27,13 +34,11 @@ pub async fn get_tags(
 
     match tag_rows {
         Ok(rows) => {
-            let tags: Vec<Tag> = rows.into_iter().map(|row| Tag {
+            let tags: Vec<TagResponse> = rows.into_iter().map(|row| TagResponse {
                 id: row.id,
-                user_id: Some(row.user_id),
                 tag: row.tag,
             }).collect();
-
-            HttpResponse::Ok().json(tags)
+            HttpResponse::Ok().json(TagWrapper { data: tags })
         },
         Err(_) => HttpResponse::InternalServerError().body("Error fetching tags"),
     }

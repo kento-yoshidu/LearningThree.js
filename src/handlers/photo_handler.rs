@@ -1,7 +1,9 @@
 use actix_web::{delete, post, put, web, HttpRequest, HttpResponse, Responder};
+use aws_sdk_s3::{error::SdkError, operation::delete_object::DeleteObjectError};
 use crate::{handlers::auth_handler::extract_user_from_jwt, models::photo::PhotoUpdateRequest, utils::s3::create_s3_client};
 use super::files_handler::PhotoCreateRequest;
 use crate::message;
+use aws_sdk_s3::error::ProvideErrorMetadata;
 
 #[post("/register-photo")]
 pub async fn register_photo(
@@ -72,9 +74,11 @@ pub async fn update_photo(
         Ok(Some(record)) => {
             HttpResponse::Ok().json(serde_json::json!({
                 "message": message::AppSuccess::Updated(message::FileType::Photo).message(),
-                "id": record.id,
-                "title": record.title,
-                "description": record.description,
+                "data": {
+                    "id": record.id,
+                    "title": record.title,
+                    "description": record.description,
+                },
             }))
         }
         Ok(None) => {
@@ -106,18 +110,23 @@ pub async fn delete_photo(
         Err(resp) => return resp,
     };
 
+    // トランザクション開始
+    let mut tx = match db_pool.begin().await {
+        Ok(t) => t,
+        Err(_) => return HttpResponse::InternalServerError().body(message::AppError::TransactionStartFailed.message()),
+    };
+
+    // S3削除対象の画像URLを取得
     let rows = sqlx::query!(
         "
-        SELECT
-            image_path
-        FROM
-            photos
+        SELECT image_path
+        FROM photos
         WHERE id = ANY($1) AND user_id = $2
         ",
         &photo_ids[..],
         claims.user_id
     )
-    .fetch_all(db_pool.get_ref())
+    .fetch_all(&mut *tx)
     .await;
 
     let filenames = match rows {
@@ -125,6 +134,24 @@ pub async fn delete_photo(
         Err(_) => return HttpResponse::InternalServerError().body("画像情報の取得失敗"),
     };
 
+    println!("s3OK");
+
+    // 中間テーブルのレコード削除
+    let delete_relations_result = sqlx::query!(
+        "
+        DELETE FROM photo_tag_relations
+        WHERE photo_id = ANY($1)
+        ",
+        &photo_ids[..],
+    )
+    .execute(&mut *tx)
+    .await;
+
+    if let Err(_) = delete_relations_result {
+        return HttpResponse::InternalServerError().body("タグ関連データの削除に失敗しました");
+    }
+
+    // S3画像削除
     let mut delete_errors = Vec::new();
 
     let (client, bucket_name, _) = create_s3_client();
@@ -145,21 +172,47 @@ pub async fn delete_photo(
             .send()
             .await;
 
-        if delete_result.is_err() {
-            delete_errors.push(format!("S3削除失敗: {}", key));
+        match delete_result {
+            Ok(_) => {
+                // 削除成功処理
+            }
+            Err(e) => {
+                if let SdkError::ServiceError(service_error) = &e {
+                    let err = &service_error.err();
+
+                let code = err.code().unwrap_or_default();
+
+                if code == "NoSuchKey" {
+                    println!("存在しないキーなので無視: {:?}", err);
+                } else {
+                    delete_errors.push(format!("S3削除失敗: {} ({:?})", key, err));
+                }
+                } else {
+                    delete_errors.push(format!("S3削除失敗: {} ({:?})", key, e));
+                }
+            }
         }
     }
 
+    // 3. photos テーブルから削除
     let result = sqlx::query!(
-        r#"
+        "
         DELETE FROM photos
         WHERE id = ANY($1) AND user_id = $2
-        "#,
+        ",
         &photo_ids[..],
         claims.user_id
     )
-    .execute(db_pool.get_ref())
+    .execute(&mut *tx)
     .await;
+
+    match tx.commit().await {
+        Ok(_) => (),
+        Err(e) => {
+            println!("トランザクションコミット失敗: {:?}", e);
+            return HttpResponse::InternalServerError().body("トランザクションコミット失敗");
+        }
+    }
 
     match result {
         Ok(res) => {
@@ -167,12 +220,17 @@ pub async fn delete_photo(
                 HttpResponse::NotFound().body("対象の写真が見つからない、または削除権限がありません")
             } else {
                 if !delete_errors.is_empty() {
+                    println!("{:?}", delete_errors);
+
                     HttpResponse::InternalServerError().body(delete_errors.join(", "))
                 } else {
                     HttpResponse::Ok().body("削除成功")
                 }
             }
         }
-        Err(_) => HttpResponse::InternalServerError().body("データベース削除失敗"),
+        Err(e) => {
+            println!("{:?}", e);
+            HttpResponse::InternalServerError().body("データベース削除失敗")
+        },
     }
 }
