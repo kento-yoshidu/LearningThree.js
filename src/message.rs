@@ -1,10 +1,19 @@
-use derive_more::Display;
+use std::fmt;
 use serde::Serialize;
 
-#[derive(Display, Debug, Serialize)]
+#[derive(Debug, Serialize)]
 pub enum FileType {
     Folder,
     Photo,
+}
+
+impl fmt::Display for FileType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            FileType::Folder => write!(f, "フォルダー"),
+            FileType::Photo => write!(f, "写真"),
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -19,9 +28,9 @@ impl AppSuccess {
     pub fn message(&self) -> String {
         match self {
             AppSuccess::CreatedFolder => "Folder was created.".to_string(),
-            AppSuccess::Updated(file_type) => format!("{file_type} was updated."),
+            AppSuccess::Updated(file_type) => format!("{file_type}の更新が成功しました。"),
             AppSuccess::DeletedFolder(file_name) => format!("{file_name} was deleted."),
-            AppSuccess::UploadedPhoto=> "Photo was uploaded".to_string(),
+            AppSuccess::UploadedPhoto=> "写真のアップロードが成功しました。".to_string(),
         }
     }
 }

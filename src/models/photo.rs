@@ -37,6 +37,25 @@ pub struct Photo {
 #[derive(Debug, Deserialize)]
 pub struct PhotoUpdateRequest {
     pub id: i32,
-    pub title: Option<String>,
+    pub name: Option<String>,
     pub description: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PhotoSearchRequest {
+    pub tags: String,
+}
+
+#[derive(Serialize)]
+pub struct PhotoWrapper {
+    pub data: Vec<PhotoResponse>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PhotoResponse {
+    pub id: i32,
+    pub title: String,
+    pub description: Option<String>,
+    pub image_path: String,
+    pub folder_id: Option<i32>,
 }

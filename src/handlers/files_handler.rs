@@ -16,7 +16,7 @@ struct FolderContents {
 #[derive(Deserialize)]
 pub struct PhotoCreateRequest {
     pub image_path: String,
-    pub title: Option<String>,
+    pub name: Option<String>,
     pub folder_id: Option<i32>,
     pub description: Option<String>,
 }

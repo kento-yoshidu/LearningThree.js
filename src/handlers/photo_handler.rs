@@ -1,12 +1,63 @@
-use actix_web::{delete, post, put, web, HttpRequest, HttpResponse, Responder};
-use aws_sdk_s3::{error::SdkError, operation::delete_object::DeleteObjectError};
-use crate::{handlers::auth_handler::extract_user_from_jwt, models::photo::PhotoUpdateRequest, utils::s3::create_s3_client};
+use actix_web::{get, delete, post, put, web, HttpRequest, HttpResponse, Responder};
+use aws_sdk_s3::error::SdkError;
+use crate::{handlers::auth_handler::extract_user_from_jwt, models::{photo::{PhotoResponse, PhotoSearchRequest, PhotoUpdateRequest, PhotoWrapper}, Photo}, utils::s3::create_s3_client};
 use super::files_handler::PhotoCreateRequest;
 use crate::message;
 use aws_sdk_s3::error::ProvideErrorMetadata;
 
-#[post("/register-photo")]
-pub async fn register_photo(
+#[get("/photos/search")]
+pub async fn search_photos(
+    req: HttpRequest,
+    db_pool: web::Data<sqlx::PgPool>,
+    payload: web::Json<PhotoSearchRequest>,
+) -> impl Responder {
+    let claims = match extract_user_from_jwt(&req) {
+        Ok(c) => c,
+        Err(resp) => return resp,
+    };
+
+    let tag_list: Vec<String> = payload
+        .tags
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .collect();
+
+    let rows = sqlx::query!(
+        r#"
+        SELECT DISTINCT p.*
+        FROM photos p
+        JOIN photo_tag_relations ptr ON p.id = ptr.photo_id
+        JOIN tags t ON ptr.tag_id = t.id
+        WHERE p.user_id = $1
+        AND t.tag = ANY($2)
+        "#,
+        claims.user_id,
+        &tag_list
+    )
+    .fetch_all(db_pool.get_ref())
+    .await;
+
+    match rows {
+        Ok(rows) => {
+            let photos: Vec<PhotoResponse> = rows
+                .into_iter()
+                .map(|row| PhotoResponse {
+                    id: row.id,
+                    title: row.title,
+                    description: row.description,
+                    image_path: row.image_path,
+                    folder_id: row.folder_id,
+                })
+                .collect();
+
+            HttpResponse::Ok().json(PhotoWrapper { data: photos })
+        }
+        Err(_) => HttpResponse::InternalServerError().body("Error searching photos"),
+    }
+}
+
+#[post("/photos")]
+pub async fn upload_photo(
     req: HttpRequest,
     db_pool: web::Data<sqlx::PgPool>,
     payload: web::Json<PhotoCreateRequest>,
@@ -24,7 +75,7 @@ pub async fn register_photo(
             ($1, $2, $3, $4, $5)
         ",
         claims.user_id,
-        payload.title.as_deref(),
+        payload.name.as_deref(),
         payload.folder_id,
         payload.description.as_deref(),
         payload.image_path,
@@ -33,15 +84,17 @@ pub async fn register_photo(
     .await;
 
     match result {
-        Ok(_) => HttpResponse::Ok().body("保存成功"),
+        Ok(_) => HttpResponse::Ok().json(serde_json::json!({
+            "message": message::AppSuccess::UploadedPhoto.message(),
+        })),
         Err(e) => {
-            eprintln!("DB保存エラー: {:?}", e);
+            println!("error: {:?}", e);
             HttpResponse::InternalServerError().body("保存失敗")
         }
     }
 }
 
-#[put("/update-photo")]
+#[put("/photos")]
 pub async fn update_photo(
     req: HttpRequest,
     db_pool: web::Data<sqlx::PgPool>,
@@ -60,7 +113,7 @@ pub async fn update_photo(
         WHERE id = $3 AND user_id = $4
         RETURNING id, title, description
         ",
-        payload.title.as_deref(),
+        payload.name.as_deref(),
         payload.description.as_deref(),
         payload.id,
         claims.user_id,
@@ -68,15 +121,13 @@ pub async fn update_photo(
     .fetch_optional(db_pool.get_ref())
     .await;
 
-    println!("{:?}", result);
-
     match result {
         Ok(Some(record)) => {
             HttpResponse::Ok().json(serde_json::json!({
                 "message": message::AppSuccess::Updated(message::FileType::Photo).message(),
                 "data": {
                     "id": record.id,
-                    "title": record.title,
+                    "name": record.title,
                     "description": record.description,
                 },
             }))
@@ -133,8 +184,6 @@ pub async fn delete_photo(
         Ok(rows) => rows.into_iter().map(|row| row.image_path).collect::<Vec<String>>(),
         Err(_) => return HttpResponse::InternalServerError().body("画像情報の取得失敗"),
     };
-
-    println!("s3OK");
 
     // 中間テーブルのレコード削除
     let delete_relations_result = sqlx::query!(
