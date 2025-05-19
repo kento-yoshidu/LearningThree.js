@@ -20,7 +20,7 @@ impl fmt::Display for FileType {
 pub enum AppSuccess {
     CreatedFolder,
     Updated(FileType),
-    DeletedFolder(String),
+    Deleted(FileType),
     UploadedPhoto,
 }
 
@@ -29,7 +29,7 @@ impl AppSuccess {
         match self {
             AppSuccess::CreatedFolder => "Folder was created.".to_string(),
             AppSuccess::Updated(file_type) => format!("{file_type}の更新が成功しました。"),
-            AppSuccess::DeletedFolder(file_name) => format!("{file_name} was deleted."),
+            AppSuccess::Deleted(file_type) => format!("{file_type}の削除が成功しました。"),
             AppSuccess::UploadedPhoto=> "写真のアップロードが成功しました。".to_string(),
         }
     }

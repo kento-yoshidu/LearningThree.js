@@ -146,7 +146,7 @@ pub async fn update_photo(
     }
 }
 
-#[delete("/delete-photo")]
+#[delete("/photos")]
 pub async fn delete_photo(
     req: HttpRequest,
     db_pool: web::Data<sqlx::PgPool>,
@@ -260,7 +260,7 @@ pub async fn delete_photo(
         Err(e) => {
             println!("トランザクションコミット失敗: {:?}", e);
             return HttpResponse::InternalServerError().body("トランザクションコミット失敗");
-        }
+        },
     }
 
     match result {
@@ -273,10 +273,12 @@ pub async fn delete_photo(
 
                     HttpResponse::InternalServerError().body(delete_errors.join(", "))
                 } else {
-                    HttpResponse::Ok().body("削除成功")
+                    HttpResponse::Ok().json(serde_json::json!({
+                        "message": message::AppSuccess::Deleted(message::FileType::Photo).message(),
+                    }))
                 }
             }
-        }
+        },
         Err(e) => {
             println!("{:?}", e);
             HttpResponse::InternalServerError().body("データベース削除失敗")
