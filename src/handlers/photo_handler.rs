@@ -1,7 +1,6 @@
 use actix_web::{get, delete, post, put, web, HttpRequest, HttpResponse, Responder};
-use aws_sdk_s3::error::SdkError;
-use crate::{handlers::auth_handler::extract_user_from_jwt, models::{photo::{PhotoResponse, PhotoSearchRequest, PhotoUpdateRequest, PhotoWrapper}, Photo}, utils::s3::create_s3_client};
-use super::files_handler::PhotoCreateRequest;
+use aws_sdk_s3::{error::SdkError, operation::delete_bucket_policy};
+use crate::{handlers::auth_handler::extract_user_from_jwt, models::{photo::{PhotoDeleteRequest, PhotoMoveRequest, PhotoResponse, PhotoSearchRequest, PhotoUpdateRequest, PhotoUploadRequest, PhotoWrapper}, Photo}, utils::s3::create_s3_client};
 use crate::message;
 use aws_sdk_s3::error::ProvideErrorMetadata;
 
@@ -60,7 +59,7 @@ pub async fn search_photos(
 pub async fn upload_photo(
     req: HttpRequest,
     db_pool: web::Data<sqlx::PgPool>,
-    payload: web::Json<PhotoCreateRequest>,
+    payload: web::Json<PhotoUploadRequest>,
 ) -> impl Responder {
     let claims = match extract_user_from_jwt(&req) {
         Ok(c) => c,
@@ -146,22 +145,74 @@ pub async fn update_photo(
     }
 }
 
-#[delete("/photos")]
-pub async fn delete_photo(
+#[put("/photos/move")]
+pub async fn move_photo(
     req: HttpRequest,
     db_pool: web::Data<sqlx::PgPool>,
-    photo_ids: web::Json<Vec<i32>>,
+    payload: web::Json<PhotoMoveRequest>,
 ) -> impl Responder {
-    if photo_ids.is_empty() {
-        return HttpResponse::BadRequest().body("削除対象のIDがありません");
-    }
-
     let claims = match extract_user_from_jwt(&req) {
         Ok(c) => c,
         Err(resp) => return resp,
     };
 
-    // トランザクション開始
+    if payload.ids.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "message": "移動する写真IDが指定されていません"
+        }));
+    }
+
+    let result = sqlx::query!(
+        "
+        UPDATE photos
+        SET folder_id = $1
+        WHERE id = ANY($2) AND user_id = $3
+        ",
+        payload.folder_id,
+        &payload.ids,
+        claims.user_id,
+    )
+    .execute(db_pool.get_ref())
+    .await;
+
+    match result {
+        Ok(res) => {
+            if res.rows_affected() == 0 {
+                HttpResponse::NotFound().json(serde_json::json!({
+                    "message": "対象の写真が見つからない、または移動権限がありません"
+                }))
+            } else {
+                HttpResponse::Ok().json(serde_json::json!({
+                    "message": format!("{}枚の写真を移動しました", res.rows_affected()),
+                }))
+            }
+        }
+        Err(e) => {
+            eprintln!("フォルダー移動失敗: {:?}", e);
+            HttpResponse::InternalServerError().json(serde_json::json!({
+                "message": "フォルダー移動中にエラーが発生しました"
+            }))
+        }
+    }
+}
+
+#[delete("/photos")]
+pub async fn delete_photo(
+    req: HttpRequest,
+    db_pool: web::Data<sqlx::PgPool>,
+    payload: web::Json<PhotoDeleteRequest>,
+) -> impl Responder {
+    let claims = match extract_user_from_jwt(&req) {
+        Ok(c) => c,
+        Err(resp) => return resp,
+    };
+
+    let photo_ids = &payload.ids;
+
+    if photo_ids.is_empty() {
+        return HttpResponse::BadRequest().body("削除対象のIDがありません");
+    }
+
     let mut tx = match db_pool.begin().await {
         Ok(t) => t,
         Err(_) => return HttpResponse::InternalServerError().body(message::AppError::TransactionStartFailed.message()),

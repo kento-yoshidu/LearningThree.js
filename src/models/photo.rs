@@ -34,11 +34,30 @@ pub struct Photo {
     pub tags: Vec<TagResponse>,
 }
 
+#[derive(Deserialize)]
+pub struct PhotoUploadRequest {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub folder_id: Option<i32>,
+    pub image_path: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct PhotoUpdateRequest {
     pub id: i32,
     pub name: Option<String>,
     pub description: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PhotoMoveRequest {
+    pub ids: Vec<i32>,
+    pub folder_id: i32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PhotoDeleteRequest {
+    pub ids: Vec<i32>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -13,14 +13,6 @@ struct FolderContents {
     breadcrumbs: Vec<Breadcrumb>,
 }
 
-#[derive(Deserialize)]
-pub struct PhotoCreateRequest {
-    pub image_path: String,
-    pub name: Option<String>,
-    pub folder_id: Option<i32>,
-    pub description: Option<String>,
-}
-
 #[get("/files/{folder_id}")]
 pub async fn get_folder_contents(
     req: HttpRequest,
