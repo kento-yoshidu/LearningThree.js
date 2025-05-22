@@ -7,6 +7,7 @@ pub struct Folder {
     pub name: String,
     pub description: Option<String>,
     pub parent_id: Option<i32>,
+    pub total_photo_count: Option<usize>,
 }
 
 #[derive(Deserialize)]
