@@ -1,8 +1,8 @@
 use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
+use serde::Serialize;
 use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
 use sqlx::PgPool;
-use crate::models::{tag::TagResponse, Breadcrumb, Folder, Photo, Tag};
+use crate::models::{tag::TagResponse, Breadcrumb, Folder, Photo};
 use crate::handlers::auth_handler::extract_user_from_jwt;
 
 #[derive(Serialize, Debug)]
@@ -51,6 +51,7 @@ pub async fn get_folder_contents(
             name: rows[0].name.clone(),
             description: rows[0].description.clone(),
             parent_id: rows[0].parent_id,
+            total_photo_count: None,
         },
         Ok(_) => return HttpResponse::NotFound().body("Folder not found"),
         Err(_) => return HttpResponse::InternalServerError().body("Error fetching folder"),
@@ -75,16 +76,57 @@ pub async fn get_folder_contents(
     .fetch_all(db.get_ref())
     .await;
 
-    let child_folders: Vec<Folder> = match child_folder_rows {
-        Ok(rows) => rows.into_iter().map(|row| Folder {
+    let mut child_folders: Vec<Folder> = Vec::new();
+
+    for row in child_folder_rows.unwrap_or_default() {
+        let folder_ids_result = sqlx::query!(
+            "
+            WITH RECURSIVE all_folders AS (
+                SELECT id FROM folders WHERE id = $1
+                UNION ALL
+                SELECT f.id
+                FROM folders f
+                INNER JOIN all_folders af ON f.parent_id = af.id
+            )
+            SELECT id FROM all_folders
+            ",
+            row.id
+        )
+        .fetch_all(db.get_ref())
+        .await;
+
+        let folder_ids: Vec<i32> = match folder_ids_result {
+            Ok(rows) => rows.into_iter().map(|r| r.id.unwrap()).collect(),
+            Err(_) => return HttpResponse::InternalServerError().body("Error fetching folder hierarchy"),
+        };
+
+        // フォルダID群に属する写真枚数を取得
+        let photo_count_row = sqlx::query!(
+            "
+            SELECT COUNT(*) as count
+            FROM photos
+            WHERE folder_id = ANY($1) AND user_id = $2
+            ",
+            &folder_ids,
+            claims.user_id
+        )
+        .fetch_one(db.get_ref())
+        .await;
+
+        let total_photo_count = match photo_count_row {
+            Ok(row) => row.count.unwrap_or(0) as usize,
+            Err(_) => return HttpResponse::InternalServerError().body("Error counting photos"),
+        };
+
+        child_folders.push(Folder {
             id: row.id,
             user_id: row.user_id,
             name: row.name.clone(),
             description: row.description.clone(),
             parent_id: row.parent_id,
-        }).collect(),
-        Err(_) => return HttpResponse::InternalServerError().body("Error fetching child folders"),
-    };
+            total_photo_count: Some(total_photo_count),
+        });
+    }
 
     // 写真データ
     let photo_rows = sqlx::query!(
