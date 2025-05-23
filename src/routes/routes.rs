@@ -20,8 +20,9 @@ use crate::handlers::tags_handler::{
     get_tags,
     add_tag,
 };
-
-use crate::handlers::generate_presigned_url::generate_presigned_url;
+use crate::handlers::s3_handler::{
+    generate_presigned_url,
+};
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg
@@ -33,12 +34,13 @@ pub fn config(cfg: &mut web::ServiceConfig) {
         .service(move_photo)
         .service(delete_photo)
         .service(search_photos)
-        .service(generate_presigned_url)
         // フォルダー
         .service(create_folder)
         .service(update_folder)
         .service(delete_folder)
         // タグ
         .service(get_tags)
-        .service(add_tag);
+        .service(add_tag)
+        // S3
+        .service(generate_presigned_url);
 }

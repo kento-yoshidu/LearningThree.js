@@ -1,7 +1,9 @@
 use std::time::Duration;
-use serde::Deserialize;
 use actix_web::{post, web, HttpResponse, Responder};
+use aws_sdk_s3::Client;
+use aws_sdk_s3::error::{SdkError, ProvideErrorMetadata};
 use aws_sdk_s3::presigning::PresigningConfig;
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::utils::s3::create_s3_client;
@@ -39,5 +41,37 @@ pub async fn generate_presigned_url(
             }))
         },
         Err(e) => HttpResponse::InternalServerError().body(format!("Failed to generate presigned URL: {}", e)),
+    }
+}
+
+pub async fn delete_image_from_s3(
+    client: &Client,
+    bucket: &str,
+    image_url: &str
+) -> Result<(), String> {
+    let key = image_url
+        .rsplit('/')
+        .next()
+        .ok_or_else(|| format!("無効なURL形式: {}", image_url))?;
+
+    match client
+        .delete_object()
+        .bucket(bucket)
+        .key(key)
+        .send()
+        .await
+    {
+        Ok(_) => Ok(()),
+        Err(SdkError::ServiceError(service_err)) => {
+            let err = service_err.err();
+            if err.code() == Some("NoSuchKey") {
+                // Caution: 画像が存在しない時はとりあえず無視
+                println!("存在しないキー: {}", key);
+                Ok(())
+            } else {
+                Err(format!("S3削除失敗: {} ({:?})", key, err))
+            }
+        }
+        Err(e) => Err(format!("S3削除失敗: {} ({:?})", key, e)),
     }
 }

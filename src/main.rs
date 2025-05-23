@@ -3,10 +3,10 @@ mod handlers {
     pub mod auth_handler;
     pub mod files_handler;
     pub mod folder_handler;
-    pub mod generate_presigned_url;
     pub mod photo_handler;
     pub mod user_handler;
     pub mod tags_handler;
+    pub mod s3_handler;
 }
 mod routes {
     pub mod routes;

@@ -1,8 +1,6 @@
 use actix_web::{get, delete, post, put, web, HttpRequest, HttpResponse, Responder};
-use aws_sdk_s3::{error::SdkError, operation::delete_bucket_policy};
-use crate::{handlers::auth_handler::extract_user_from_jwt, models::{photo::{PhotoDeleteRequest, PhotoMoveRequest, PhotoResponse, PhotoSearchRequest, PhotoUpdateRequest, PhotoUploadRequest, PhotoWrapper}, Photo}, utils::s3::create_s3_client};
+use crate::{handlers::{auth_handler::extract_user_from_jwt, s3_handler::delete_image_from_s3}, models::{photo::{PhotoDeleteRequest, PhotoMoveRequest, PhotoResponse, PhotoSearchRequest, PhotoUpdateRequest, PhotoUploadRequest, PhotoWrapper}}, utils::s3::create_s3_client};
 use crate::message;
-use aws_sdk_s3::error::ProvideErrorMetadata;
 
 #[get("/photos/search")]
 pub async fn search_photos(
@@ -257,44 +255,12 @@ pub async fn delete_photo(
     let (client, bucket_name, _) = create_s3_client();
 
     for url in filenames {
-        let key = match url.rsplit('/').next() {
-            Some(k) => k,
-            None => {
-                delete_errors.push(format!("無効なURL形式: {}", url));
-                continue;
-            }
-        };
-
-        let delete_result = client
-            .delete_object()
-            .bucket(&bucket_name)
-            .key(key)
-            .send()
-            .await;
-
-        match delete_result {
-            Ok(_) => {
-                // 削除成功処理
-            }
-            Err(e) => {
-                if let SdkError::ServiceError(service_error) = &e {
-                    let err = &service_error.err();
-
-                let code = err.code().unwrap_or_default();
-
-                if code == "NoSuchKey" {
-                    println!("存在しないキーなので無視: {:?}", err);
-                } else {
-                    delete_errors.push(format!("S3削除失敗: {} ({:?})", key, err));
-                }
-                } else {
-                    delete_errors.push(format!("S3削除失敗: {} ({:?})", key, e));
-                }
-            }
+        if let Err(e) = delete_image_from_s3(&client, &bucket_name, &url).await {
+            delete_errors.push(e);
         }
     }
 
-    // 3. photos テーブルから削除
+    // photos テーブルから削除
     let result = sqlx::query!(
         "
         DELETE FROM photos
