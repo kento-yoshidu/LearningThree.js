@@ -108,7 +108,7 @@ pub async fn update_folder(
     }
 }
 
-#[delete("/delete-folder")]
+#[delete("/folders")]
 pub async fn delete_folder(
     db_pool: web::Data<sqlx::PgPool>,
     payload: web::Json<FolderDeleteRequest>,
