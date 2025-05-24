@@ -24,7 +24,7 @@ where
 pub struct Photo {
     pub id: i32,
     pub user_id: Option<i32>,
-    pub title: Option<String>,
+    pub name: Option<String>,
     pub folder_id: Option<String>,
     pub folder_name: Option<String>,
     pub description: Option<String>,
@@ -73,7 +73,7 @@ pub struct PhotoWrapper {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PhotoResponse {
     pub id: i32,
-    pub title: String,
+    pub name: String,
     pub description: Option<String>,
     pub image_path: String,
     pub folder_id: Option<i32>,

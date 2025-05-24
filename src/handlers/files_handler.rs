@@ -133,7 +133,7 @@ pub async fn get_folder_contents(
         "SELECT
             photos.id,
             photos.user_id,
-            photos.title,
+            photos.name,
             photos.description,
             photos.image_path,
             photos.uploaded_at,
@@ -195,7 +195,7 @@ pub async fn get_folder_contents(
     let photos: Vec<Photo> = rows.into_iter().map(|row| Photo {
         id: row.id,
         user_id: row.user_id,
-        title: Some(row.title),
+        name: Some(row.name),
         description: row.description,
         image_path: row.image_path,
         uploaded_at: row.uploaded_at,
@@ -260,7 +260,7 @@ pub async fn get_all_photos(
         "SELECT
             photos.id,
             photos.user_id,
-            photos.title,
+            photos.name,
             photos.description,
             photos.image_path,
             photos.uploaded_at,
@@ -317,7 +317,7 @@ pub async fn get_all_photos(
     let photos: Vec<Photo> = rows.into_iter().map(|row| Photo {
         id: row.id,
         user_id: row.user_id,
-        title: Some(row.title),
+        name: Some(row.name),
         description: row.description,
         image_path: row.image_path,
         uploaded_at: row.uploaded_at,

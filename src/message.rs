@@ -48,10 +48,10 @@ pub enum AppError {
 impl AppError {
     pub fn message(&self) -> String {
         match self {
-            AppError::CreateFolderFailed => "Failed to create folder.".to_string(),
-            AppError::UpdateFolderFailed => "Failed to update folder.".to_string(),
-            AppError::DeleteFailed(file_type) => format!("Failed to delete {file_type}."),
-            AppError::UploadFailed(file_type) => format!("Failed to upload {file_type}."),
+            AppError::CreateFolderFailed => "フォルダーの作成に失敗しました。".to_string(),
+            AppError::UpdateFolderFailed => "フォルダーの更新に失敗しました。".to_string(),
+            AppError::DeleteFailed(file_type) => format!("{file_type}の削除に失敗しました。"),
+            AppError::UploadFailed(file_type) => format!("{file_type}の更新に失敗しました。"),
             AppError::InternalServerError => "Internal Server Error".to_string(),
             AppError::TransactionStartFailed => "Failed to start transaction".to_string(),
         }

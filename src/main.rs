@@ -78,14 +78,21 @@ async fn test() {
         .expect("Failed to connect to DB");
 
     let photo = query!(
-        "SELECT id, title, description, image_path, folder_id FROM photos WHERE id = $1",
+        "SELECT
+            id, name,
+            description,
+            image_path,
+            folder_id
+        FROM
+            photos
+        WHERE id = $1",
         1
     )
     .fetch_one(&pool)
     .await
     .expect("Failed to fetch test photo");
 
-    assert_eq!(photo.title, "admin_photo_1");
+    assert_eq!(photo.name, "admin_photo_1");
     assert_eq!(photo.description, Some("admin photo 1".to_string()));
     assert_eq!(photo.image_path, "/images/1.jpg");
     assert_eq!(photo.folder_id, Some(1));

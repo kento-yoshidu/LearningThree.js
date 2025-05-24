@@ -22,6 +22,7 @@ pub struct FolderUpdateRequest {
     pub name: String,
     pub description: Option<String>,
     pub folder_id: i32,
+    pub total_photo_count: i32,
 }
 
 #[derive(Debug, Deserialize)]
