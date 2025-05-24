@@ -20,14 +20,14 @@ pub async fn search_photos(
         .collect();
 
     let rows = sqlx::query!(
-        r#"
+        "
         SELECT DISTINCT p.*
         FROM photos p
         JOIN photo_tag_relations ptr ON p.id = ptr.photo_id
         JOIN tags t ON ptr.tag_id = t.id
         WHERE p.user_id = $1
         AND t.tag = ANY($2)
-        "#,
+        ",
         claims.user_id,
         &tag_list
     )
@@ -40,7 +40,7 @@ pub async fn search_photos(
                 .into_iter()
                 .map(|row| PhotoResponse {
                     id: row.id,
-                    title: row.title,
+                    name: row.name,
                     description: row.description,
                     image_path: row.image_path,
                     folder_id: row.folder_id,
@@ -49,7 +49,9 @@ pub async fn search_photos(
 
             HttpResponse::Ok().json(PhotoWrapper { data: photos })
         }
-        Err(_) => HttpResponse::InternalServerError().body("Error searching photos"),
+        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "message": "検索に失敗しました。",
+        })),
     }
 }
 
@@ -67,7 +69,7 @@ pub async fn upload_photo(
     let result = sqlx::query!(
         "
         INSERT INTO photos
-            (user_id, title, folder_id, description, image_path)
+            (user_id, name, folder_id, description, image_path)
         VALUES
             ($1, $2, $3, $4, $5)
         ",
@@ -86,7 +88,9 @@ pub async fn upload_photo(
         })),
         Err(e) => {
             println!("error: {:?}", e);
-            HttpResponse::InternalServerError().body("保存失敗")
+            HttpResponse::InternalServerError().json(serde_json::json!({
+                "message": "写真のアップロードに失敗しました。"
+            }))
         }
     }
 }
@@ -105,10 +109,10 @@ pub async fn update_photo(
     let result = sqlx::query!(
         "
         UPDATE photos
-        SET title = COALESCE($1, title),
+        SET name = COALESCE($1, name),
             description = COALESCE($2, description)
         WHERE id = $3 AND user_id = $4
-        RETURNING id, title, description
+        RETURNING id, name, description
         ",
         payload.name.as_deref(),
         payload.description.as_deref(),
@@ -124,7 +128,7 @@ pub async fn update_photo(
                 "message": message::AppSuccess::Updated(message::FileType::Photo).message(),
                 "data": {
                     "id": record.id,
-                    "name": record.title,
+                    "name": record.name,
                     "description": record.description,
                 },
             }))

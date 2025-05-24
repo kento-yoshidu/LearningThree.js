@@ -1,6 +1,6 @@
 use actix_web::{post, put, delete, web::{self}, HttpRequest, HttpResponse, Responder};
 use serde::Deserialize;
-use crate::{handlers::auth_handler::extract_user_from_jwt, models::folder::{FolderDeleteRequest, FolderUpdateRequest}};
+use crate::{handlers::{auth_handler::extract_user_from_jwt, s3_handler::delete_image_from_s3}, models::folder::{FolderDeleteRequest, FolderUpdateRequest}, utils::s3::create_s3_client};
 use crate::message;
 
 #[derive(Debug, Deserialize)]
@@ -97,9 +97,11 @@ pub async fn update_folder(
     match result {
         Ok(record) => HttpResponse::Ok().json(serde_json::json!({
             "message": message::AppSuccess::Updated(message::FileType::Folder).message(),
-            "id": record.id,
-            "name": record.name,
-            "description": record.description
+            "data": {
+                "id": record.id,
+                "name": record.name,
+                "description": record.description,
+            }
         })),
         Err(e) => {
             eprintln!("フォルダ更新エラー: {:?}", e);
@@ -114,6 +116,8 @@ pub async fn delete_folder(
     payload: web::Json<FolderDeleteRequest>,
     req: HttpRequest,
 ) -> impl Responder {
+    let (s3_client, bucket_name, _) = create_s3_client();
+
     let claims = match extract_user_from_jwt(&req) {
         Ok(c) => c,
         Err(resp) => return resp,
@@ -156,7 +160,12 @@ pub async fn delete_folder(
         }
 
         let photos = match sqlx::query!(
-            "SELECT image_path FROM photos WHERE folder_id = $1",
+            "SELECT
+                id,
+                image_path
+            FROM
+                photos
+            WHERE folder_id = $1",
             folder_id
         )
         .fetch_all(&mut *tx)
@@ -169,9 +178,21 @@ pub async fn delete_folder(
             }
         };
 
-        if !photos.is_empty() {
-            return HttpResponse::BadRequest()
-                .body(format!("フォルダID {} に写真が存在するため削除できません", folder_id));
+        for photo in photos {
+            if let Err(e) = delete_image_from_s3(&s3_client, &bucket_name, &photo.image_path).await {
+                eprintln!("S3画像削除失敗: {}", e);
+                return HttpResponse::InternalServerError()
+                    .body(format!("S3画像削除失敗: {}", e));
+            }
+
+            let result = sqlx::query!("DELETE FROM photos WHERE id = $1", photo.id)
+                .execute(&mut *tx)
+                .await;
+
+            if let Err(e) = result {
+                eprintln!("DBからの画像削除失敗: {:?}", e);
+                return HttpResponse::InternalServerError().body("写真の削除に失敗しました");
+            }
         }
 
         let delete_result = sqlx::query!(
@@ -194,56 +215,5 @@ pub async fn delete_folder(
         return HttpResponse::InternalServerError().body(message::AppError::InternalServerError.message());
     }
 
-    HttpResponse::Ok().json(serde_json::json!({ "message": "すべてのフォルダを削除しました" }))
+    HttpResponse::Ok().json(serde_json::json!({ "message": "フォルダーを削除しました" }))
 }
-
-// // S3削除
-// let (s3_client, bucket_name, _) = create_s3_client();
-// for photo in &photos {
-//     if let Some(s3_key) = &photo.s3_key {
-//         if let Err(e) = s3_client
-//             .delete_object()
-//             .bucket(&bucket_name)
-//             .key(s3_key)
-//             .send()
-//             .await
-//         {
-//             eprintln!("S3削除失敗: {:?}", e);
-//         }
-//     }
-// }
-
-// // DBからphotos削除
-// if let Err(e) = sqlx::query!(
-//     "DELETE FROM photos WHERE folder_id = $1",
-//     folder_id
-// )
-// .execute(&mut *tx)
-// .await
-// {
-//     eprintln!("写真削除失敗: {:?}", e);
-//     return HttpResponse::InternalServerError().body("内部エラー");
-// }
-
-// // フォルダ削除
-// if let Err(e) = sqlx::query!(
-//     "DELETE FROM folders WHERE id = $1",
-//     folder_id
-// )
-// .execute(&mut *tx)
-// .await
-// {
-//     eprintln!("フォルダ削除失敗: {:?}", e);
-//     return HttpResponse::InternalServerError().body("内部エラー");
-// }
-
-// // トランザクションコミット
-// if let Err(e) = tx.commit().await {
-//     eprintln!("トランザクションコミット失敗: {:?}", e);
-//     return HttpResponse::InternalServerError().body("内部エラー");
-// }
-
-// HttpResponse::Ok().json(serde_json::json!({
-//     "message": "フォルダ削除成功",
-//     "deleted_folder_id": folder_id
-// }))
