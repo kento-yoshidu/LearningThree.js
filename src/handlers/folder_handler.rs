@@ -119,72 +119,82 @@ pub async fn delete_folder(
         Err(resp) => return resp,
     };
 
-    let folder_id = payload.folder_id;
+    let folder_ids = &payload.ids;
 
-    // DBトランザクション開始
     let mut tx = match db_pool.begin().await {
         Ok(tx) => tx,
         Err(e) => {
             eprintln!("トランザクション開始エラー: {:?}", e);
-            return HttpResponse::InternalServerError().body(message::AppError::InternalServerError.message());
+            return HttpResponse::InternalServerError().body(message::AppError::TransactionStartFailed.message());
         }
     };
 
-    let folder_check = sqlx::query_scalar!(
-        "SELECT id FROM folders WHERE id = $1 AND user_id = $2",
-        folder_id,
-        claims.user_id,
-    )
-    .fetch_optional(&mut *tx)
-    .await;
+    for &folder_id in folder_ids {
+        let folder_check = sqlx::query_scalar!(
+            "SELECT
+                id
+            FROM
+                folders
+            WHERE id = $1 AND user_id = $2",
+            folder_id,
+            claims.user_id,
+        )
+        .fetch_optional(&mut *tx)
+        .await;
 
-    if let Err(e) = folder_check {
-        eprintln!("フォルダ確認失敗: {:?}", e);
-        return HttpResponse::InternalServerError().body(message::AppError::InternalServerError.message());
-    }
-
-    if folder_check.unwrap().is_none() {
-        return HttpResponse::NotFound().body("フォルダが存在しないか、権限がありません");
-    }
-
-    // 関連するphoto取得
-    let photos = match sqlx::query!(
-        "SELECT image_path FROM photos WHERE folder_id = $1",
-        folder_id
-    )
-    .fetch_all(&mut *tx)
-    .await
-    {
-        Ok(photos) => photos,
-        Err(e) => {
-            return HttpResponse::InternalServerError().body(message::AppError::InternalServerError.message());
+        match folder_check {
+            Ok(Some(_)) => {}
+            Ok(None) => {
+                return HttpResponse::NotFound()
+                    .body(format!("フォルダID {} が存在しないか、権限がありません", folder_id));
+            }
+            Err(e) => {
+                eprintln!("フォルダ確認失敗: {:?}", e);
+                return HttpResponse::InternalServerError()
+                    .body(message::AppError::InternalServerError.message());
+            }
         }
-    };
 
-    if photos.is_empty() {
-        match sqlx::query!(
+        let photos = match sqlx::query!(
+            "SELECT image_path FROM photos WHERE folder_id = $1",
+            folder_id
+        )
+        .fetch_all(&mut *tx)
+        .await
+        {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("写真取得失敗: {:?}", e);
+                return HttpResponse::InternalServerError().body(message::AppError::InternalServerError.message());
+            }
+        };
+
+        if !photos.is_empty() {
+            return HttpResponse::BadRequest()
+                .body(format!("フォルダID {} に写真が存在するため削除できません", folder_id));
+        }
+
+        let delete_result = sqlx::query!(
             "DELETE FROM folders WHERE id = $1 AND user_id = $2",
             folder_id,
             claims.user_id,
         )
         .execute(&mut *tx)
-        .await
-        {
-            Ok(_) => {
-                if let Err(e) = tx.commit().await {
-                    return HttpResponse::InternalServerError().body(message::AppError::InternalServerError.message());
-                }
+        .await;
 
-                HttpResponse::Ok().json(serde_json::json!({ "message": "フォルダ削除成功" }))
-            }
-            Err(e) => {
-                HttpResponse::InternalServerError().body(message::AppError::DeleteFailed(message::FileType::Folder).message())
-            }
+        if let Err(e) = delete_result {
+            eprintln!("フォルダ削除失敗: {:?}", e);
+            return HttpResponse::InternalServerError()
+                .body(message::AppError::DeleteFailed(message::FileType::Folder).message());
         }
-    } else {
-        eprintln!("フォルダ内に {} 件の写真が存在します。削除できません。", photos.len());
-        HttpResponse::BadRequest().body("フォルダ内に写真が存在するため削除できません")
     }
+
+    if let Err(e) = tx.commit().await {
+        eprintln!("トランザクションコミット失敗: {:?}", e);
+        return HttpResponse::InternalServerError().body(message::AppError::InternalServerError.message());
+    }
+
+    HttpResponse::Ok().json(serde_json::json!({ "message": "すべてのフォルダを削除しました" }))
 }
 
 // // S3削除

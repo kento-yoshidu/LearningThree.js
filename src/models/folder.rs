@@ -26,5 +26,5 @@ pub struct FolderUpdateRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct FolderDeleteRequest {
-    pub folder_id: i32,
+    pub ids: Vec<i32>,
 }
