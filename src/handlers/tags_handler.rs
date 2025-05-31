@@ -1,4 +1,4 @@
-use actix_web::{get, post, web::{self, Payload}, HttpRequest, HttpResponse, Responder};
+use actix_web::{get, post, web::{self}, HttpRequest, HttpResponse, Responder};
 use sqlx::{PgPool, Postgres, Transaction};
 use crate::{
     handlers::auth_handler::extract_user_from_jwt,
@@ -77,7 +77,11 @@ pub async fn add_tag(
         Ok(Some(row)) => row.id,
         Ok(None) => {
             match sqlx::query!(
-                "SELECT id FROM tags WHERE tag = $1 AND user_id = $2",
+                "SELECT
+                    id
+                FROM
+                    tags
+                WHERE tag = $1 AND user_id = $2",
                 payload.tag,
                 claims.user_id,
             )

@@ -8,6 +8,7 @@ pub struct Folder {
     pub description: Option<String>,
     pub parent_id: Option<i32>,
     pub total_photo_count: Option<usize>,
+    pub total_photo_size: Option<i64>
 }
 
 #[derive(Deserialize)]
@@ -22,7 +23,6 @@ pub struct FolderUpdateRequest {
     pub name: String,
     pub description: Option<String>,
     pub folder_id: i32,
-    pub total_photo_count: i32,
 }
 
 #[derive(Debug, Deserialize)]

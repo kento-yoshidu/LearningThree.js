@@ -69,15 +69,22 @@ pub async fn upload_photo(
     let result = sqlx::query!(
         "
         INSERT INTO photos
-            (user_id, name, folder_id, description, image_path)
+            (
+                user_id,
+                name,
+                folder_id,
+                description,
+                image_path,
+                size_in_bytes)
         VALUES
-            ($1, $2, $3, $4, $5)
+            ($1, $2, $3, $4, $5, $6)
         ",
         claims.user_id,
         payload.name.as_deref(),
         payload.folder_id,
         payload.description.as_deref(),
         payload.image_path,
+        payload.size_in_bytes,
     )
     .execute(db_pool.get_ref())
     .await;
