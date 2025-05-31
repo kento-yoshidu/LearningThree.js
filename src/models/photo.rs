@@ -31,6 +31,7 @@ pub struct Photo {
     pub image_path: String,
     #[serde(serialize_with = "serialize_datetime")]
     pub uploaded_at: OffsetDateTime,
+    pub size_in_bytes: i64,
     pub tags: Vec<TagResponse>,
 }
 
@@ -40,6 +41,7 @@ pub struct PhotoUploadRequest {
     pub description: Option<String>,
     pub folder_id: Option<i32>,
     pub image_path: String,
+    pub size_in_bytes: i64,
 }
 
 #[derive(Debug, Deserialize)]

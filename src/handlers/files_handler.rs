@@ -4,6 +4,7 @@ use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
 use sqlx::PgPool;
 use crate::models::{tag::TagResponse, Breadcrumb, Folder, Photo};
 use crate::handlers::auth_handler::extract_user_from_jwt;
+use bigdecimal::ToPrimitive;
 
 #[derive(Serialize, Debug)]
 struct FolderContents {
@@ -52,6 +53,7 @@ pub async fn get_folder_contents(
             description: rows[0].description.clone(),
             parent_id: rows[0].parent_id,
             total_photo_count: None,
+            total_photo_size: None,
         },
         Ok(_) => return HttpResponse::NotFound().body("Folder not found"),
         Err(_) => return HttpResponse::InternalServerError().body("Error fetching folder"),
@@ -118,6 +120,24 @@ pub async fn get_folder_contents(
             Err(_) => return HttpResponse::InternalServerError().body("Error counting photos"),
         };
 
+        let photo_size_sum_row = sqlx::query!(
+            "
+            SELECT COALESCE(SUM(size_in_bytes), 0) as sum_size
+            FROM photos
+            WHERE folder_id = ANY($1) AND user_id = $2
+            ",
+            &folder_ids,
+            claims.user_id
+        )
+        .fetch_one(db.get_ref())
+        .await;
+
+        // total_photo_size を i64 に変換
+        let total_photo_size = match photo_size_sum_row {
+            Ok(row) => row.sum_size.and_then(|bd| bd.to_i64()).unwrap_or(0),
+            Err(_) => return HttpResponse::InternalServerError().body("Error summing photo sizes"),
+        };
+
         child_folders.push(Folder {
             id: row.id,
             user_id: row.user_id,
@@ -125,6 +145,7 @@ pub async fn get_folder_contents(
             description: row.description.clone(),
             parent_id: row.parent_id,
             total_photo_count: Some(total_photo_count),
+            total_photo_size: Some(total_photo_size),
         });
     }
 
@@ -137,6 +158,7 @@ pub async fn get_folder_contents(
             photos.description,
             photos.image_path,
             photos.uploaded_at,
+            photos.size_in_bytes,
             folders.name AS folder_name
         FROM
             photos
@@ -200,6 +222,7 @@ pub async fn get_folder_contents(
         image_path: row.image_path,
         uploaded_at: row.uploaded_at,
         folder_id: Some(folder_id.to_string()),
+        size_in_bytes: row.size_in_bytes.unwrap_or(0),
         folder_name: Some(row.folder_name),
         tags: tag_map.remove(&row.id).unwrap_or_default(),
     }).collect();
@@ -265,6 +288,7 @@ pub async fn get_all_photos(
             photos.image_path,
             photos.uploaded_at,
             photos.folder_id,
+            photos.size_in_bytes,
             folders.name AS folder_name
         FROM
             photos
@@ -323,6 +347,7 @@ pub async fn get_all_photos(
         uploaded_at: row.uploaded_at,
         folder_id: row.folder_id.map(|id| id.to_string()),
         folder_name: Some(row.folder_name),
+        size_in_bytes: row.size_in_bytes.unwrap_or(0),
         tags: tag_map.remove(&row.id).unwrap_or_default(),
     }).collect();
 
