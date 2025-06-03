@@ -1,5 +1,5 @@
 use actix_web::{get, delete, post, put, web, HttpRequest, HttpResponse, Responder};
-use crate::{handlers::{auth_handler::extract_user_from_jwt, s3_handler::delete_image_from_s3}, models::{photo::{PhotoDeleteRequest, PhotoMoveRequest, PhotoResponse, PhotoSearchRequest, PhotoUpdateRequest, PhotoUploadRequest, PhotoWrapper}}, utils::s3::create_s3_client};
+use crate::{handlers::{auth_handler::extract_user_from_jwt, s3_handler::delete_image_from_s3}, models::{photo::{PhotoDeleteRequest, PhotoMoveRequest, PhotoResponse, PhotoSearchRequest, PhotoUpdateRequest, PhotoUploadRequest, PhotoWrapper, TagAddRequest}, tag::AddTagRequest}, utils::s3::create_s3_client};
 use crate::message;
 
 #[get("/photos/search")]
@@ -152,6 +152,80 @@ pub async fn update_photo(
             }))
         }
     }
+}
+
+#[post("/photos/tags")]
+pub async fn add_tag_to_photo(
+    req: HttpRequest,
+    db_pool: web::Data<sqlx::PgPool>,
+    payload: web::Json<TagAddRequest>,
+) -> impl Responder {
+        let claims = match extract_user_from_jwt(&req) {
+        Ok(c) => c,
+        Err(resp) => return resp,
+    };
+
+    let mut tx = match db_pool.begin().await {
+        Ok(t) => t,
+        Err(_) => {
+            eprintln!("トランザクション開始失敗");
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+
+    let rows = match sqlx::query!(
+        "SELECT id FROM tags WHERE user_id = $1 AND id = ANY($2)",
+        claims.user_id,
+        &payload.tag_ids
+    )
+    .fetch_all(&mut *tx)
+    .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("タグ所有権チェック失敗: {:?}", e);
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+
+    let owned_tag_ids: Vec<i32> = rows.into_iter().map(|r| r.id).collect();
+
+    for tag_id in &payload.tag_ids {
+        if !owned_tag_ids.contains(tag_id) {
+            return HttpResponse::Forbidden().json(serde_json::json!({
+                "message": format!("タグID {} はあなたのタグではありません", tag_id)
+            }));
+        }
+    }
+
+    for photo_id in &payload.photo_ids {
+        for tag_id in &payload.tag_ids {
+            if let Err(e) = sqlx::query!(
+                "INSERT INTO photo_tag_relations (photo_id, tag_id)
+                    VALUES ($1, $2)
+                    ON CONFLICT DO NOTHING",
+                photo_id,
+                tag_id
+            )
+            .execute(&mut *tx)
+            .await
+            {
+                eprintln!("photo_id {} に tag_id {} を追加中にエラー: {:?}", photo_id, tag_id, e);
+                return HttpResponse::InternalServerError().json(serde_json::json!({
+                    "message": "タグの追加に失敗しました"
+                }));
+            }
+        }
+    }
+
+    if let Err(e) = tx.commit().await {
+        eprintln!("トランザクションコミット失敗: {:?}", e);
+        return HttpResponse::InternalServerError().finish();
+    }
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "message": "タグを写真に追加しました"
+    }))
 }
 
 #[put("/photos/move")]
