@@ -80,3 +80,9 @@ pub struct PhotoResponse {
     pub image_path: String,
     pub folder_id: Option<i32>,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct TagAddRequest {
+    pub photo_ids: Vec<i32>,
+    pub tag_ids: Vec<i32>,
+}

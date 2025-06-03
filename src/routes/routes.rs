@@ -10,6 +10,7 @@ use crate::handlers::photo_handler::{
     move_photo,
     delete_photo,
     search_photos,
+    add_tag_to_photo,
 };
 use crate::handlers::folder_handler::{
     create_folder,
@@ -34,6 +35,7 @@ pub fn config(cfg: &mut web::ServiceConfig) {
         .service(move_photo)
         .service(delete_photo)
         .service(search_photos)
+        .service(add_tag_to_photo)
         // フォルダー
         .service(create_folder)
         .service(update_folder)
