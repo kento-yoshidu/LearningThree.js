@@ -173,7 +173,8 @@ pub async fn add_tag_to_photo(
         }
     };
 
-    let rows = match sqlx::query!(
+    // タグの所有者チェック（タグが自分のものか）
+    let tag_rows = match sqlx::query!(
         "SELECT id FROM tags WHERE user_id = $1 AND id = ANY($2)",
         claims.user_id,
         &payload.tag_ids
@@ -188,7 +189,7 @@ pub async fn add_tag_to_photo(
         }
     };
 
-    let owned_tag_ids: Vec<i32> = rows.into_iter().map(|r| r.id).collect();
+    let owned_tag_ids: Vec<i32> = tag_rows.into_iter().map(|r| r.id).collect();
 
     for tag_id in &payload.tag_ids {
         if !owned_tag_ids.contains(tag_id) {
@@ -198,7 +199,48 @@ pub async fn add_tag_to_photo(
         }
     }
 
+    // 写真の所有者チェック
+    let photo_rows = match sqlx::query!(
+        "SELECT id FROM photos WHERE user_id = $1 AND id = ANY($2)",
+        claims.user_id,
+        &payload.photo_ids
+    )
+    .fetch_all(&mut *tx)
+    .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("写真所有権チェック失敗: {:?}", e);
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+
+    let owned_photo_ids: Vec<i32> = photo_rows.into_iter().map(|r| r.id).collect();
+
     for photo_id in &payload.photo_ids {
+        if !owned_photo_ids.contains(photo_id) {
+            return HttpResponse::Forbidden().json(serde_json::json!({
+                "message": format!("写真ID {} はあなたの写真ではありません", photo_id)
+            }));
+        }
+    }
+
+    for photo_id in &payload.photo_ids {
+        // 既存タグを削除
+        if let Err(e) = sqlx::query!(
+            "DELETE FROM photo_tag_relations WHERE photo_id = $1",
+            photo_id
+        )
+        .execute(&mut *tx)
+        .await
+        {
+            eprintln!("photo_id {} の既存タグ削除失敗: {:?}", photo_id, e);
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "message": "既存のタグ削除に失敗しました"
+            }));
+        }
+
+        // 新しいタグを追加
         for tag_id in &payload.tag_ids {
             if let Err(e) = sqlx::query!(
                 "INSERT INTO photo_tag_relations (photo_id, tag_id)
@@ -224,7 +266,7 @@ pub async fn add_tag_to_photo(
     }
 
     HttpResponse::Ok().json(serde_json::json!({
-        "message": "タグを写真に追加しました"
+        "message": "タグを上書きしました"
     }))
 }
 
