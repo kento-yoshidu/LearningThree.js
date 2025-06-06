@@ -1,6 +1,15 @@
+use std::collections::HashMap;
+
 use actix_web::{get, delete, post, put, web, HttpRequest, HttpResponse, Responder};
-use crate::{handlers::{auth_handler::extract_user_from_jwt, s3_handler::delete_image_from_s3}, models::{photo::{PhotoDeleteRequest, PhotoMoveRequest, PhotoResponse, PhotoSearchRequest, PhotoUpdateRequest, PhotoUploadRequest, PhotoWrapper, TagAddRequest}, tag::AddTagRequest}, utils::s3::create_s3_client};
+use serde::Serialize;
+use crate::{handlers::{auth_handler::extract_user_from_jwt, s3_handler::delete_image_from_s3}, models::{photo::{PhotoDeleteRequest, PhotoMoveRequest, PhotoResponse, PhotoSearchRequest, PhotoUpdateRequest, PhotoUploadRequest, PhotoWrapper, TagAddRequest}, tag::AddTagRequest, Tag}, utils::s3::create_s3_client};
 use crate::message;
+
+#[derive(Debug, Serialize)]
+struct PhotoWithTags {
+    id: i32,
+    tags: Vec<Tag>,
+}
 
 #[get("/photos/search")]
 pub async fn search_photos(
@@ -160,7 +169,8 @@ pub async fn add_tag_to_photo(
     db_pool: web::Data<sqlx::PgPool>,
     payload: web::Json<TagAddRequest>,
 ) -> impl Responder {
-        let claims = match extract_user_from_jwt(&req) {
+    println!("発火");
+    let claims = match extract_user_from_jwt(&req) {
         Ok(c) => c,
         Err(resp) => return resp,
     };
@@ -260,13 +270,54 @@ pub async fn add_tag_to_photo(
         }
     }
 
+    // タグ情報を取得して返す
+    let rows = match sqlx::query!(
+        r#"
+        SELECT ptr.photo_id, t.id AS tag_id, t.tag
+        FROM photo_tag_relations ptr
+        JOIN tags t ON ptr.tag_id = t.id
+        WHERE ptr.photo_id = ANY($1)
+        "#,
+        &payload.photo_ids
+    )
+    .fetch_all(db_pool.get_ref())
+    .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("タグ取得失敗: {:?}", e);
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "message": "タグ情報の取得に失敗しました"
+            }));
+        }
+    };
+
+    let mut map: HashMap<i32, Vec<Tag>> = HashMap::new();
+
+    for row in rows {
+        map.entry(row.photo_id)
+            .or_insert_with(Vec::new)
+            .push(Tag {
+                id: row.tag_id,
+                user_id: Some(claims.user_id),
+                tag: row.tag,
+            });
+    }
+
+    let updated_photos: Vec<PhotoWithTags> = map
+        .into_iter()
+        .map(|(id, tags)| PhotoWithTags { id, tags })
+        .collect();
+
+    // トランザクションの最後に追加
     if let Err(e) = tx.commit().await {
-        eprintln!("トランザクションコミット失敗: {:?}", e);
+        eprintln!("トランザクションのコミットに失敗: {:?}", e);
         return HttpResponse::InternalServerError().finish();
     }
 
     HttpResponse::Ok().json(serde_json::json!({
-        "message": "タグを上書きしました"
+        "message": "タグを更新しました",
+        "updated_photos": updated_photos
     }))
 }
 
