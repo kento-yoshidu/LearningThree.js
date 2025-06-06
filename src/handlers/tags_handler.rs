@@ -96,20 +96,23 @@ pub async fn add_tag(
         Err(_) => return HttpResponse::InternalServerError().body("Failed to insert tag"),
     };
 
-    let relation_result = sqlx::query!(
-        "
-        INSERT INTO photo_tag_relations (photo_id, tag_id)
-        VALUES ($1, $2)
-        ON CONFLICT DO NOTHING
-        ",
-        payload.photo_id,
-        tag_id,
-    )
-    .execute(&mut *tx)
-    .await;
+    // 写真IDがあればリレーションも作成
+    if let Some(photo_id) = payload.photo_id {
+        let relation_result = sqlx::query!(
+            "
+                INSERT INTO photo_tag_relations (photo_id, tag_id)
+                VALUES ($1, $2)
+                ON CONFLICT DO NOTHING
+            ",
+            photo_id,
+            tag_id,
+        )
+        .execute(&mut *tx)
+        .await;
 
-    if relation_result.is_err() {
-        return HttpResponse::InternalServerError().body("Failed to insert photo-tag relation");
+        if relation_result.is_err() {
+            return HttpResponse::InternalServerError().body("Failed to insert photo-tag relation");
+        }
     }
 
     if let Err(_) = tx.commit().await {

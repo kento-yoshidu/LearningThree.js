@@ -29,6 +29,6 @@ impl From<Tag> for TagResponse {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AddTagRequest {
-    pub photo_id: i32,
+    pub photo_id: Option<i32>,
     pub tag: String,
 }
