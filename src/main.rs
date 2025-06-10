@@ -17,7 +17,7 @@ mod utils {
 mod message;
 
 use std::env;
-use actix_web::{web, App, HttpServer, Responder, get};
+use actix_web::{get, web, App, HttpServer, Responder};
 use actix_cors::Cors;
 use actix_web_httpauth::middleware::HttpAuthentication;
 use sqlx::PgPool;
@@ -30,6 +30,11 @@ use handlers::user_handler::{signin, signup};
 #[get("/check-s3-auth")]
 async fn check_s3_authentication() -> impl Responder {
     verify_s3_credentials().await
+}
+
+#[get("/")]
+async fn hello() -> impl Responder {
+    format!("Hello World")
 }
 
 #[actix_web::main]
@@ -53,6 +58,7 @@ async fn main() -> std::io::Result<()> {
                     .max_age(3600),
             )
             .app_data(pool_data.clone())
+            .service(hello)
             .service(signin)
             .service(signup)
             .service(
