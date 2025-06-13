@@ -159,6 +159,8 @@ pub async fn get_folder_contents(
             photos.image_path,
             photos.uploaded_at,
             photos.size_in_bytes,
+            photos.width,
+            photos.height,
             folders.name AS folder_name
         FROM
             photos
@@ -217,14 +219,16 @@ pub async fn get_folder_contents(
     let photos: Vec<Photo> = rows.into_iter().map(|row| Photo {
         id: row.id,
         user_id: row.user_id,
-        name: Some(row.name),
+        name: row.name,
         description: row.description,
         image_path: row.image_path,
         uploaded_at: row.uploaded_at,
-        folder_id: Some(folder_id.to_string()),
-        size_in_bytes: row.size_in_bytes.unwrap_or(0),
-        folder_name: Some(row.folder_name),
+        folder_id: folder_id,
+        size_in_bytes: row.size_in_bytes,
+        folder_name: row.folder_name,
         tags: tag_map.remove(&row.id).unwrap_or_default(),
+        width: row.width,
+        height: row.height,
     }).collect();
 
     // パンくずリスト
@@ -289,6 +293,8 @@ pub async fn get_all_photos(
             photos.uploaded_at,
             photos.folder_id,
             photos.size_in_bytes,
+            photos.width,
+            photos.height,
             folders.name AS folder_name
         FROM
             photos
@@ -341,14 +347,16 @@ pub async fn get_all_photos(
     let photos: Vec<Photo> = rows.into_iter().map(|row| Photo {
         id: row.id,
         user_id: row.user_id,
-        name: Some(row.name),
+        name: row.name,
         description: row.description,
         image_path: row.image_path,
         uploaded_at: row.uploaded_at,
-        folder_id: row.folder_id.map(|id| id.to_string()),
-        folder_name: Some(row.folder_name),
-        size_in_bytes: row.size_in_bytes.unwrap_or(0),
+        folder_id: row.folder_id,
+        folder_name: row.folder_name,
+        size_in_bytes: row.size_in_bytes,
         tags: tag_map.remove(&row.id).unwrap_or_default(),
+        width: row.width,
+        height: row.height,
     }).collect();
 
     HttpResponse::Ok().json(photos)

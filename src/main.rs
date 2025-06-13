@@ -101,5 +101,5 @@ async fn test() {
     assert_eq!(photo.name, "admin_photo_1");
     assert_eq!(photo.description, Some("admin photo 1".to_string()));
     assert_eq!(photo.image_path, "/images/1.jpg");
-    assert_eq!(photo.folder_id, Some(1));
+    assert_eq!(photo.folder_id, 1);
 }
