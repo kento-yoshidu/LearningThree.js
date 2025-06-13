@@ -53,6 +53,8 @@ pub async fn search_photos(
                     description: row.description,
                     image_path: row.image_path,
                     folder_id: row.folder_id,
+                    width: row.width,
+                    height: row.height,
                 })
                 .collect();
 

@@ -23,15 +23,17 @@ where
 #[derive(Serialize, Debug)]
 pub struct Photo {
     pub id: i32,
-    pub user_id: Option<i32>,
-    pub name: Option<String>,
-    pub folder_id: Option<String>,
-    pub folder_name: Option<String>,
+    pub user_id: i32,
+    pub name: String,
+    pub folder_id: i32,
+    pub folder_name: String,
     pub description: Option<String>,
     pub image_path: String,
     #[serde(serialize_with = "serialize_datetime")]
     pub uploaded_at: OffsetDateTime,
     pub size_in_bytes: i64,
+    pub width: i32,
+    pub height: i32,
     pub tags: Vec<TagResponse>,
 }
 
@@ -78,7 +80,9 @@ pub struct PhotoResponse {
     pub name: String,
     pub description: Option<String>,
     pub image_path: String,
-    pub folder_id: Option<i32>,
+    pub folder_id: i32,
+    pub width: i32,
+    pub height: i32,
 }
 
 #[derive(Debug, Deserialize)]
